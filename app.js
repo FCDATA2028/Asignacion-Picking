@@ -39,36 +39,36 @@ const CONFIG_AIP02 = {
         arriba: ["101", "102", "103", "104", "105", "106", "107", "108"],
         abajo: ["201", "202", "203", "204", "205", "206", "207", "208"],
         msrTop: [
-            { id: "MSR 102", pasillos: ["101", "102", "103", "104", "105", "106"] },
-            { id: "MSR 104", pasillos: ["107", "108"] }
+            { id: "MSR 102", pasillos: ["101", "102", "103", "104"] },
+            { id: "MSR 104", pasillos: ["105", "106", "107", "108"] }
         ],
         msrBottom: [
-            { id: "MSR 101", pasillos: ["201", "202", "203", "204", "205", "206"] },
-            { id: "MSR 103", pasillos: ["207", "208"] }
+            { id: "MSR 101", pasillos: ["201", "202", "203", "204"] },
+            { id: "MSR 103", pasillos: ["205", "206", "207", "208"] }
         ]
     },
     "AIP_P1": {
         arriba: ["301", "302", "303", "304", "305", "306", "307", "308"],
         abajo: ["401", "402", "403", "404", "405", "406", "407", "408"],
         msrTop: [
-            { id: "MSR 202", pasillos: ["301", "302", "303", "304", "305", "306"] },
-            { id: "MSR 204", pasillos: ["307", "308"] }
+            { id: "MSR 202", pasillos: ["301", "302", "303", "304"] },
+            { id: "MSR 204", pasillos: ["305", "306", "307", "308"] }
         ],
         msrBottom: [
-            { id: "MSR 201", pasillos: ["401", "402", "403", "404", "405", "406"] },
-            { id: "MSR 203", pasillos: ["407", "408"] }
+            { id: "MSR 201", pasillos: ["401", "402", "403", "404"] },
+            { id: "MSR 203", pasillos: ["405", "406", "407", "408"] }
         ]
     },
     "AIP_P2": {
         arriba: ["501", "502", "503", "504", "505", "506", "507", "508"],
         abajo: ["601", "602", "603", "604", "605", "606", "607", "608"],
         msrTop: [
-            { id: "MSR 302", pasillos: ["501", "502", "503", "504", "505", "506"] },
-            { id: "MSR 304", pasillos: ["507", "508"] }
+            { id: "MSR 302", pasillos: ["501", "502", "503", "504"] },
+            { id: "MSR 304", pasillos: ["505", "506", "507", "508"] }
         ],
         msrBottom: [
-            { id: "MSR 301", pasillos: ["601", "602", "603", "604", "605", "606"] },
-            { id: "MSR 303", pasillos: ["607", "608"] }
+            { id: "MSR 301", pasillos: ["601", "602", "603", "604"] },
+            { id: "MSR 303", pasillos: ["605", "606", "607", "608"] }
         ]
     }
 };
@@ -342,7 +342,6 @@ function createBayCard(area, pasillo, bahiaNum, maxLineas) {
     return el;
 }
 
-/* RENDER AIP01 PLANTA BAJA CON MSP QUE ABARCA SUS 4 BAHÍAS */
 function renderPlantaBaja(area, selectedPasillos) {
     const cedisGrid = document.createElement("div");
     cedisGrid.className = "cedis-grid-pb";
@@ -413,7 +412,6 @@ function createAisleModulePB(area, pasillo) {
     return aisleBlock;
 }
 
-/* RENDER AIP01 PLANTA ALTA */
 function renderPlantaAlta(area, selectedPasillos) {
     const gridPA = document.createElement("div");
     gridPA.className = "cedis-grid-pa";
@@ -498,7 +496,6 @@ function createMspCardPA(area, mspKey, spanClass) {
     return el;
 }
 
-/* RENDER AIP02 ALINEACIÓN DE MSR CON SUS PASILLOS */
 function renderAIP02Layout(area, selectedPasillos) {
     const vista = viewSelect.value;
     const config = CONFIG_AIP02[vista];
@@ -513,7 +510,7 @@ function renderAIP02Layout(area, selectedPasillos) {
         if (selectedPasillos.includes(p)) topSector.appendChild(createAipAisleModule(area, p, "TOP"));
     });
 
-    // MSR SUPERIOR (MSR 102 / MSR 104)
+    // MSR SUPERIOR
     const msrTopRow = document.createElement("div");
     msrTopRow.className = "msr-row-grid";
     config.msrTop.forEach(m => {
@@ -534,7 +531,7 @@ function renderAIP02Layout(area, selectedPasillos) {
         msrTopRow.appendChild(msrEl);
     });
 
-    // MSR INFERIOR (MSR 101 / MSR 103)
+    // MSR INFERIOR
     const msrBottomRow = document.createElement("div");
     msrBottomRow.className = "msr-row-grid";
     config.msrBottom.forEach(m => {
