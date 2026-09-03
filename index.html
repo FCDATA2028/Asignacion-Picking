@@ -17,10 +17,6 @@
         </div>
         <div class="header-right">
             <div class="control-group">
-                <label for="area" class="header-label">ÁREA</label>
-                <select id="area" class="select-area"></select>
-            </div>
-            <div class="control-group">
                 <label for="viewSelect" class="header-label">VISTA / PLANTA</label>
                 <select id="viewSelect" class="select-area">
                     <option value="PB">Planta Baja (Pasillos 101 - 102)</option>
@@ -54,7 +50,7 @@
             </div>
         </section>
 
-        <!-- FILTRO DE PASILLOS -->
+        <!-- CONTROLES -->
         <section class="controls-bar">
             <div class="control-item">
                 <span class="control-label">FILTRAR PASILLOS:</span>
@@ -72,9 +68,16 @@
                     </div>
                 </div>
             </div>
+
+            <!-- BOTÓN MODO RESUMIDO / DETALLADO -->
+            <div class="control-item" id="toggleViewContainer" style="margin-left: auto;">
+                <button type="button" id="btnToggleCompact" class="btn-toggle-view">
+                    📊 Vista Compacta (Gerencial)
+                </button>
+            </div>
         </section>
 
-        <!-- CONTENEDOR DEL LAYOUT -->
+        <!-- MAPA VISUAL -->
         <section id="mapsContainer" class="maps-container">
             <div class="loading-overlay">Cargando mapa visual del almacén...</div>
         </section>
