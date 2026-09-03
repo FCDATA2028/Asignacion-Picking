@@ -261,7 +261,6 @@ body {
     background-color: #f0f9ff;
     border-radius: 6px;
     height: calc((58px * 2) + 6px);
-    /* Ocupa exactamente 2 bahías verticales de alto */
     display: flex;
     flex-direction: column;
     justify-content: center;
@@ -415,12 +414,8 @@ body {
     gap: 10px;
 }
 
-.msr-span-2 {
-    grid-column: span 2;
-}
-
-.msr-span-6 {
-    grid-column: span 6;
+.msr-span-4 {
+    grid-column: span 4;
 }
 
 .msr-card-h {
