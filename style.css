@@ -1,0 +1,668 @@
+* {
+    box-sizing: border-box;
+    margin: 0;
+    padding: 0;
+}
+
+body {
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+    background-color: #f8fafc;
+    color: #0f172a;
+    line-height: 1.3;
+}
+
+.app-header {
+    background-color: #ffffff;
+    border-bottom: 1px solid #e2e8f0;
+    padding: 12px 24px;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+}
+
+.app-header h1 {
+    font-size: 18px;
+    font-weight: 800;
+    color: #0f172a;
+}
+
+.subtitle {
+    font-size: 12px;
+    color: #64748b;
+}
+
+.header-right {
+    display: flex;
+    align-items: center;
+    gap: 16px;
+}
+
+.control-group {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+}
+
+.header-label {
+    font-size: 11px;
+    font-weight: 800;
+    color: #475569;
+}
+
+.select-area {
+    padding: 6px 10px;
+    border: 1px solid #cbd5e1;
+    border-radius: 6px;
+    background-color: #ffffff;
+    font-weight: 700;
+    font-size: 12px;
+    color: #0f172a;
+}
+
+.container {
+    max-width: 1920px;
+    margin: 0 auto;
+    padding: 16px;
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+}
+
+.kpi-bar {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 12px;
+}
+
+.kpi-card {
+    background: #ffffff;
+    border: 1px solid #e2e8f0;
+    border-radius: 6px;
+    padding: 10px 14px;
+}
+
+.kpi-title {
+    display: block;
+    font-size: 10px;
+    font-weight: 700;
+    color: #64748b;
+}
+
+.kpi-value {
+    display: block;
+    font-size: 20px;
+    font-weight: 800;
+    color: #1e293b;
+    margin-top: 2px;
+}
+
+.controls-bar {
+    background: #ffffff;
+    border: 1px solid #e2e8f0;
+    border-radius: 6px;
+    padding: 8px 12px;
+}
+
+.control-item {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+}
+
+.control-label {
+    font-size: 11px;
+    font-weight: 700;
+    color: #475569;
+}
+
+.multi-select {
+    position: relative;
+    min-width: 260px;
+}
+
+.multi-button {
+    width: 100%;
+    padding: 6px 10px;
+    background: #ffffff;
+    border: 1px solid #cbd5e1;
+    border-radius: 6px;
+    cursor: pointer;
+    font-size: 12px;
+    font-weight: 600;
+    display: flex;
+    justify-content: space-between;
+}
+
+.multi-dropdown {
+    display: none;
+    position: absolute;
+    top: 100%;
+    left: 0;
+    width: 100%;
+    background: #ffffff;
+    border: 1px solid #cbd5e1;
+    border-radius: 6px;
+    margin-top: 4px;
+    padding: 8px;
+    z-index: 1000;
+    box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
+    max-height: 250px;
+    overflow-y: auto;
+}
+
+.multi-dropdown.open {
+    display: block;
+}
+
+.multi-actions {
+    display: flex;
+    gap: 6px;
+    margin-bottom: 6px;
+}
+
+.multi-actions button {
+    flex: 1;
+    border: none;
+    padding: 4px;
+    border-radius: 4px;
+    cursor: pointer;
+    font-size: 10px;
+    font-weight: 700;
+}
+
+.btn-select {
+    background: #e2e8f0;
+    color: #0f172a;
+}
+
+.btn-clear {
+    background: #f1f5f9;
+    color: #64748b;
+}
+
+.checkbox-item {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    padding: 3px;
+    font-size: 11px;
+    cursor: pointer;
+}
+
+.maps-container {
+    background: #ffffff;
+    border: 1px solid #e2e8f0;
+    border-radius: 8px;
+    padding: 16px;
+    overflow-x: auto;
+}
+
+/* AIP01 PLANTA BAJA */
+.cedis-grid-pb {
+    display: grid;
+    grid-template-columns: 1fr 80px 1fr;
+    gap: 16px;
+    min-width: 1200px;
+}
+
+.aisle-block {
+    background: #ffffff;
+    border: 1px solid #cbd5e1;
+    border-radius: 8px;
+    padding: 10px;
+    display: flex;
+    flex-direction: column;
+}
+
+.aisle-title {
+    text-align: center;
+    font-size: 12px;
+    font-weight: 800;
+    color: #0f172a;
+    padding-bottom: 4px;
+    border-bottom: 1px solid #e2e8f0;
+    margin-bottom: 6px;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.aisle-sub-headers {
+    display: grid;
+    grid-template-columns: 1fr 110px 1fr;
+    text-align: center;
+    font-size: 10px;
+    font-weight: 800;
+    color: #64748b;
+    margin-bottom: 6px;
+}
+
+.aisle-content-grid-pb {
+    display: grid;
+    grid-template-columns: 1fr 110px 1fr;
+    gap: 8px;
+}
+
+.bay-column {
+    display: flex;
+    flex-direction: column-reverse;
+    gap: 6px;
+}
+
+.msp-column-grid {
+    display: flex;
+    flex-direction: column-reverse;
+    gap: 6px;
+    justify-content: space-between;
+}
+
+.msp-card-block {
+    border: 1px dashed #0284c7;
+    background-color: #f0f9ff;
+    border-radius: 6px;
+    height: calc((58px * 2) + 6px);
+    /* Ocupa exactamente 2 bahías verticales de alto */
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    align-items: center;
+    text-align: center;
+    padding: 4px;
+}
+
+.central-rep-corridor {
+    background: #f1f5f9;
+    border: 1px dashed #cbd5e1;
+    border-radius: 6px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    writing-mode: vertical-rl;
+    transform: rotate(180deg);
+    font-size: 11px;
+    font-weight: 800;
+    color: #64748b;
+    letter-spacing: 2px;
+}
+
+/* AIP01 PLANTA ALTA */
+.cedis-grid-pa {
+    display: grid;
+    grid-template-columns: 1fr 130px 130px 1fr;
+    gap: 12px;
+    min-width: 1300px;
+}
+
+.pa-aisle-stack,
+.pa-msp-stack {
+    display: flex;
+    flex-direction: column-reverse;
+    gap: 8px;
+}
+
+.pa-aisle-card {
+    background: #ffffff;
+    border: 1px solid #cbd5e1;
+    border-radius: 6px;
+    padding: 6px;
+    height: 154px;
+    display: flex;
+    flex-direction: column;
+    justify-content: space-between;
+}
+
+.pa-aisle-header {
+    font-size: 11px;
+    font-weight: 800;
+    color: #0f172a;
+    margin-bottom: 2px;
+    text-align: center;
+    border-bottom: 1px solid #f1f5f9;
+    padding-bottom: 2px;
+}
+
+.pa-bay-grid {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+}
+
+.pa-bay-row {
+    display: grid;
+    grid-template-columns: repeat(5, 1fr);
+    gap: 4px;
+}
+
+.pa-msp-card {
+    background: #f0f9ff;
+    border: 1px dashed #0284c7;
+    border-radius: 6px;
+    padding: 8px;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    align-items: center;
+    text-align: center;
+}
+
+.pa-msp-card.span-4 {
+    height: 640px;
+}
+
+.pa-msp-card.span-3 {
+    height: 478px;
+}
+
+/* AIP02 LAYOUT */
+.aip02-layout-grid {
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+    min-width: 1300px;
+}
+
+.aip02-sector {
+    display: grid;
+    grid-template-columns: repeat(8, 1fr);
+    gap: 10px;
+}
+
+.horizontal-aisle-card {
+    background: #ffffff;
+    border: 1px solid #cbd5e1;
+    border-radius: 6px;
+    padding: 6px;
+}
+
+.horizontal-bay-grid.double-face {
+    display: grid;
+    grid-template-columns: 1fr 12px 1fr;
+    gap: 4px;
+}
+
+.horizontal-bay-grid.single-face {
+    display: grid;
+    grid-template-columns: 1fr;
+}
+
+.bay-col-side {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+}
+
+.side-label {
+    font-size: 8px;
+    font-weight: 800;
+    color: #64748b;
+    text-align: center;
+}
+
+.aisle-physical-corridor {
+    background: #e2e8f0;
+    border-radius: 2px;
+    writing-mode: vertical-rl;
+    text-align: center;
+    font-size: 8px;
+    font-weight: 800;
+    color: #64748b;
+}
+
+/* MSR CENTRALES EXPANSIÓN Y ALINEACIÓN EXACTA CON PASILLOS */
+.msr-row-grid {
+    display: grid;
+    grid-template-columns: repeat(8, 1fr);
+    gap: 10px;
+}
+
+.msr-span-2 {
+    grid-column: span 2;
+}
+
+.msr-span-6 {
+    grid-column: span 6;
+}
+
+.msr-card-h {
+    background: #f0f9ff;
+    border: 1px dashed #0284c7;
+    border-radius: 6px;
+    padding: 6px 12px;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    min-height: 48px;
+}
+
+/* TARJETAS DE BAHÍA */
+.bay-card {
+    border: 1px solid #cbd5e1;
+    border-radius: 4px;
+    padding: 3px 5px;
+    height: 58px;
+    display: flex;
+    flex-direction: column;
+    justify-content: space-between;
+    cursor: pointer;
+    transition: all 0.15s ease;
+    overflow: hidden;
+}
+
+.bay-card:hover {
+    border-color: #0284c7;
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.05);
+}
+
+.bay-header-line {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: 2px;
+}
+
+.bay-num {
+    font-size: 9px;
+    font-weight: 800;
+    color: #334155;
+    white-space: nowrap;
+}
+
+.bay-curva-tag {
+    font-size: 8px;
+    font-weight: 800;
+    background: #ffffff;
+    border: 1px solid #cbd5e1;
+    padding: 0px 3px;
+    border-radius: 2px;
+    color: #0f172a;
+    white-space: nowrap;
+}
+
+.bay-main-info {
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-end;
+    gap: 2px;
+}
+
+.bay-metrics {
+    display: flex;
+    flex-direction: column;
+    min-width: 0;
+}
+
+.bay-lpn-val {
+    font-size: 11px;
+    font-weight: 800;
+    color: #0f172a;
+    line-height: 1.1;
+    white-space: nowrap;
+}
+
+.bay-sku-val {
+    font-size: 8px;
+    color: #64748b;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.bay-kpi-badge {
+    font-size: 9px;
+    font-weight: 800;
+    padding: 1px 3px;
+    border-radius: 2px;
+    white-space: nowrap;
+}
+
+.msp-card-title {
+    font-size: 11px;
+    font-weight: 800;
+    color: #0369a1;
+    white-space: nowrap;
+}
+
+.msp-card-sub {
+    font-size: 8px;
+    color: #0c4a6e;
+    font-weight: 600;
+    margin-bottom: 2px;
+}
+
+.msp-kpi-row {
+    font-size: 10px;
+    font-weight: 800;
+    color: #0f172a;
+    background: #ffffff;
+    border: 1px solid #bae6fd;
+    padding: 2px 4px;
+    border-radius: 4px;
+    white-space: nowrap;
+}
+
+/* CUMPLIMIENTO */
+.kpi-good {
+    background: #dcfce7;
+    color: #15803d;
+}
+
+.kpi-mid {
+    background: #fef9c3;
+    color: #a16207;
+}
+
+.kpi-bad {
+    background: #fee2e2;
+    color: #b91c1c;
+}
+
+.kpi-none {
+    background: #f1f5f9;
+    color: #64748b;
+}
+
+/* MODAL */
+.modal-overlay {
+    display: none;
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background: rgba(15, 23, 42, 0.4);
+    z-index: 2000;
+    align-items: center;
+    justify-content: center;
+}
+
+.modal-overlay.active {
+    display: flex;
+}
+
+.modal-content {
+    background: #ffffff;
+    width: 90%;
+    max-width: 800px;
+    max-height: 85vh;
+    border-radius: 8px;
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+}
+
+.modal-header {
+    padding: 14px 18px;
+    background: #0f172a;
+    color: #ffffff;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+}
+
+.modal-header h2 {
+    font-size: 15px;
+    font-weight: 700;
+}
+
+.modal-subtitle {
+    font-size: 11px;
+    color: #94a3b8;
+}
+
+.modal-close {
+    background: transparent;
+    border: none;
+    color: #ffffff;
+    font-size: 22px;
+    cursor: pointer;
+}
+
+.modal-body {
+    padding: 14px;
+    overflow-y: auto;
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+}
+
+.level-row {
+    background: #ffffff;
+    border: 1px solid #e2e8f0;
+    border-left: 4px solid #0284c7;
+    border-radius: 6px;
+    padding: 8px 12px;
+    display: grid;
+    grid-template-columns: 130px 90px 1fr;
+    align-items: center;
+    gap: 10px;
+}
+
+.level-badge {
+    font-weight: 800;
+    font-size: 11px;
+}
+
+.level-items {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 4px;
+    max-height: 55px;
+    overflow-y: auto;
+    padding: 4px;
+    background: #f8fafc;
+    border-radius: 4px;
+}
+
+.item-chip {
+    font-size: 9px;
+    padding: 2px 4px;
+    border-radius: 3px;
+    background: #ffffff;
+    border: 1px solid #cbd5e1;
+}
+
+.loading-overlay {
+    text-align: center;
+    padding: 30px;
+    color: #64748b;
+}
