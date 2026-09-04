@@ -89,7 +89,6 @@ body {
     box-shadow: 0 1px 2px rgba(0, 0, 0, 0.05);
 }
 
-/* TARJETA DE CUMPLIMIENTO DESTACADA Y MÁS GRANDE */
 .kpi-card-highlight {
     border: 2px solid #0284c7;
     background: #f0f9ff;
@@ -116,7 +115,6 @@ body {
     margin-top: 2px;
 }
 
-/* VALOR DE CUMPLIMIENTO AUMENTADO */
 .kpi-value-curva {
     font-size: 32px;
     color: #0284c7;
@@ -245,7 +243,6 @@ body {
     overflow-y: auto;
 }
 
-/* AIP02 LAYOUT CON ALINEACIÓN CONTINUA MSR */
 .aip02-layout-grid {
     display: flex;
     flex-direction: column;
@@ -265,14 +262,15 @@ body {
 
 .horizontal-aisle-card {
     background: #f8fafc;
-    border: 1.5px solid #cbd5e1;
+    border: 2px solid #cbd5e1;
     border-radius: 8px;
     padding: 6px;
     width: 100%;
     display: flex;
     flex-direction: column;
     justify-content: space-between;
-    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.03);
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05);
+    transition: all 0.3s ease;
 }
 
 .horizontal-aisle-card.compact {
@@ -365,7 +363,6 @@ body {
     box-shadow: 0 2px 4px rgba(0, 0, 0, 0.02);
 }
 
-/* PLANTA BAJA AIP01 */
 .cedis-grid-pb {
     display: grid;
     grid-template-columns: 1fr 70px 1fr;
@@ -388,7 +385,7 @@ body {
     font-weight: 900;
     color: #0f172a;
     padding-bottom: 4px;
-    border-bottom: 1.5px solid #e2e8f0;
+    border-bottom: 1.5px solid rgba(0, 0, 0, 0.1);
     margin-bottom: 6px;
     display: flex;
     justify-content: space-between;
@@ -436,6 +433,7 @@ body {
     text-align: center;
     padding: 4px;
     box-sizing: border-box;
+    transition: all 0.3s ease;
 }
 
 .central-rep-corridor {
@@ -453,7 +451,6 @@ body {
     letter-spacing: 1px;
 }
 
-/* PLANTA ALTA AIP01 */
 .cedis-grid-pa {
     display: grid;
     grid-template-columns: 1fr 140px 140px 1fr;
@@ -470,13 +467,14 @@ body {
 
 .pa-aisle-card {
     background: #f8fafc;
-    border: 1.5px solid #cbd5e1;
+    border: 2px solid #cbd5e1;
     border-radius: 8px;
     padding: 6px;
     height: 145px;
     display: flex;
     flex-direction: column;
     justify-content: space-between;
+    transition: all 0.3s ease;
 }
 
 .pa-aisle-card.compact {
@@ -523,11 +521,10 @@ body {
 .pa-aisle-header {
     font-size: 12px;
     font-weight: 900;
-    color: #0f172a;
     display: flex;
     justify-content: space-between;
     align-items: center;
-    border-bottom: 1px solid #e2e8f0;
+    border-bottom: 1px solid rgba(0, 0, 0, 0.1);
     padding-bottom: 2px;
 }
 
@@ -559,6 +556,7 @@ body {
     justify-content: center;
     align-items: center;
     text-align: center;
+    transition: all 0.3s ease;
 }
 
 .pa-msp-card.span-4 {
@@ -603,7 +601,6 @@ body {
     color: #475569;
 }
 
-/* BAHÍAS DETALLADAS */
 .bay-card {
     border: 1px solid #94a3b8;
     border-radius: 6px;
@@ -672,7 +669,6 @@ body {
     border-radius: 4px;
 }
 
-/* TEXTOS AUMENTADOS EN MSP Y MSR */
 .msp-card-title {
     font-size: 15px;
     font-weight: 900;
@@ -693,7 +689,6 @@ body {
     margin-top: 2px;
 }
 
-/* CUMPLIMIENTO */
 .kpi-good {
     background: #dcfce7;
     color: #15803d;
@@ -714,7 +709,6 @@ body {
     color: #64748b;
 }
 
-/* MODAL */
 .modal-overlay {
     display: none;
     position: fixed;
