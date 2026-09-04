@@ -19,28 +19,12 @@
             <div class="control-group">
                 <label for="viewSelect" class="header-label">VISTA / PLANTA</label>
                 <select id="viewSelect" class="select-area">
+                    <option value="MSP_MSR" selected>📊 VISTA MSP/MSR (GERENCIAL POR NIVELES)</option>
                     <option value="PB">Planta Baja (Pasillos 101 - 102)</option>
                     <option value="PA">Planta Alta (Pasillos 201 - 228)</option>
                     <option value="AIP_PB">AIP02 - Planta Baja (101-108 / 201-208)</option>
                     <option value="AIP_P1">AIP02 - Piso 1 (301-308 / 401-408)</option>
                     <option value="AIP_P2">AIP02 - Piso 2 (501-508 / 601-608)</option>
-                </select>
-            </div>
-
-            <!-- FILTRO DE SUB-CURVAS DETALLADAS -->
-            <div class="control-group">
-                <label for="curvaFilter" class="header-label">CURVA</label>
-                <select id="curvaFilter" class="select-area">
-                    <option value="TODAS">TODAS LAS CURVAS</option>
-                    <option value="A1F">A1F</option>
-                    <option value="A2F">A2F</option>
-                    <option value="A1S">A1S</option>
-                    <option value="A2S">A2S</option>
-                    <option value="B1F">B1F</option>
-                    <option value="B1S">B1S</option>
-                    <option value="B2S">B2S</option>
-                    <option value="C1S">C1S</option>
-                    <option value="C2S">C2S</option>
                 </select>
             </div>
         </div>
@@ -67,19 +51,43 @@
             </div>
         </section>
 
-        <!-- CONTROLES -->
+        <!-- CONTROLES MODIFICADOS -->
         <section class="controls-bar">
+            <!-- CHECKPOINTS CURVA -->
             <div class="control-item">
-                <span class="control-label">FILTRAR PASILLOS:</span>
+                <span class="control-label">CURVAS:</span>
+                <div class="multi-select">
+                    <button type="button" id="curvaMultiBtn" class="multi-button">
+                        <span id="curvaMultiBtnText">Todas las Curvas</span>
+                        <span class="arrow">▼</span>
+                    </button>
+                    <div id="curvaDropdown" class="multi-dropdown">
+                        <div class="multi-actions">
+                            <button class="btn-select" id="btnSelectAllCurvas">Seleccionar todas</button>
+                            <button class="btn-clear" id="btnClearAllCurvas">Desmarcar todas</button>
+                        </div>
+                        <div id="curvaOptions" class="pasillo-options"></div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- FILTRO DE TOP RANKING SKU -->
+            <div class="control-item" style="margin-left: 16px;">
+                <span class="control-label">TOP RANKING SKU:</span>
+                <input type="number" id="rankingInput" class="input-ranking" placeholder="Ej: 50 (Todos)" min="1" />
+            </div>
+
+            <!-- PASILLOS (COMPATIBILIDAD CON OTRAS VISTAS) -->
+            <div id="pasilloSelectWrapper" class="control-item" style="display: none; margin-left: 12px;">
                 <div class="multi-select">
                     <button type="button" id="multiButton" class="multi-button">
-                        <span id="multiButtonText">Seleccionar pasillos</span>
+                        <span id="multiButtonText">Pasillos</span>
                         <span class="arrow">▼</span>
                     </button>
                     <div id="multiDropdown" class="multi-dropdown">
                         <div class="multi-actions">
-                            <button class="btn-select" id="btnSelectAll">Seleccionar todos</button>
-                            <button class="btn-clear" id="btnClearAll">Desmarcar todos</button>
+                            <button class="btn-select" id="btnSelectAll">Todos</button>
+                            <button class="btn-clear" id="btnClearAll">Ninguno</button>
                         </div>
                         <div id="pasilloOptions" class="pasillo-options"></div>
                     </div>
