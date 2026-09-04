@@ -6,6 +6,7 @@ let MAP_SKU = new Map();
 let MAP_UBICACION = new Map();
 let DATA = {};
 let IS_COMPACT_MODE = false;
+let SELECTED_CURVA = "TODAS";
 
 const CONFIG_MSP_PB_AIP01 = {
     "101": [
@@ -75,6 +76,7 @@ const CONFIG_AIP02 = {
 };
 
 const viewSelect = document.getElementById("viewSelect");
+const curvaFilter = document.getElementById("curvaFilter");
 const multiButton = document.getElementById("multiButton");
 const multiDropdown = document.getElementById("multiDropdown");
 const pasilloOptions = document.getElementById("pasilloOptions");
@@ -290,30 +292,25 @@ function getSelectedPasillos() {
     return Array.from(pasilloOptions.querySelectorAll("input[type='checkbox']:checked")).map(cb => cb.value);
 }
 
-function getTotalLineasVista(selectedPasillos) {
-    let sum = 0;
-    selectedPasillos.forEach(pKey => {
-        const rawP = DATA[pKey] || {};
-        Object.values(rawP).forEach(b => {
-            sum += b.lineasCount;
-        });
-    });
-    return sum;
+/* Colorimetría basada en el porcentaje de participación sobre el total de líneas */
+function getHeatmapColorPct(porcentaje) {
+    if (porcentaje > 40) {
+        // MUCHO - ROJO
+        return { bg: 'linear-gradient(135deg, #fee2e2 0%, #fca5a5 100%)', border: '#f87171', text: '#991b1b' };
+    } else if (porcentaje >= 15) {
+        // MEDIANO - AMARILLO
+        return { bg: 'linear-gradient(135deg, #fef9c3 0%, #fef08a 100%)', border: '#fde047', text: '#854d0e' };
+    } else {
+        // POCO - VERDE
+        return { bg: 'linear-gradient(135deg, #f0fdf4 0%, #dcfce7 100%)', border: '#86efac', text: '#166534' };
+    }
 }
 
-function getHeatmapColor(percentage) {
-    const pct = Math.min(100, Math.max(0, percentage));
-    if (pct <= 5) return { bg: 'linear-gradient(135deg, #f0fdf4 0%, #dcfce7 100%)', border: '#86efac', text: '#166534' };
-    if (pct <= 15) return { bg: 'linear-gradient(135deg, #fef9c3 0%, #fef08a 100%)', border: '#fde047', text: '#854d0e' };
-    if (pct <= 25) return { bg: 'linear-gradient(135deg, #ffedd5 0%, #fed7aa 100%)', border: '#fdba74', text: '#9a3412' };
-    return { bg: 'linear-gradient(135deg, #fee2e2 0%, #fca5a5 100%)', border: '#f87171', text: '#991b1b' };
-}
-
-function getFillColor(count, max) {
-    if (count === 0 || max === 0) return "#ffffff";
-    const ratio = Math.min(1, count / max);
-    const lightness = Math.round(98 - (ratio * 18));
-    return `hsl(210, 20%, ${lightness}%)`;
+function getFillColor(count) {
+    if (count === 0) return "#ffffff";
+    if (count <= 15) return "#dcfce7";
+    if (count <= 40) return "#fef08a";
+    return "#fca5a5";
 }
 
 function obtenerCurvaDominanteBahia(rawData) {
@@ -332,18 +329,51 @@ function obtenerCurvaDominanteBahia(rawData) {
     return rawData.teorica || 'S/A';
 }
 
-function createBayCard(pasilloKey, bahiaNum, maxLineas) {
+function filtrarBahiaPorCurva(rawData) {
+    if (!rawData) return { lineasCount: 0, lpnsSet: new Set(), skusSet: new Set(), cumplimientoCount: 0, teorica: 'S/A' };
+    if (SELECTED_CURVA === "TODAS") return rawData;
+
+    let lineasCount = 0;
+    let lpnsSet = new Set();
+    let skusSet = new Set();
+    let cumplimientoCount = 0;
+
+    Object.values(rawData.niveles || {}).forEach(niv => {
+        (niv.items || []).forEach(it => {
+            if (it.curvaReal.startsWith(SELECTED_CURVA)) {
+                lineasCount++;
+                if (it.lpn && it.lpn !== 'SIN LPN') lpnsSet.add(it.lpn);
+                if (it.sku) skusSet.add(it.sku);
+                if (it.esConforme) cumplimientoCount++;
+            }
+        });
+    });
+
+    return {
+        lineasCount,
+        lpnsSet,
+        skusSet,
+        cumplimientoCount,
+        teorica: rawData.teorica,
+        curvasConteo: rawData.curvasConteo,
+        niveles: rawData.niveles
+    };
+}
+
+function createBayCard(pasilloKey, bahiaNum) {
     const rawData = DATA[pasilloKey]?.[bahiaNum];
-    const totalLineas = rawData ? rawData.lineasCount : 0;
-    const totalLpns = rawData ? rawData.lpnsSet.size : 0;
-    const totalSkus = rawData ? rawData.skusSet.size : 0;
+    const bahiaFiltrada = filtrarBahiaPorCurva(rawData);
+
+    const totalLineas = bahiaFiltrada.lineasCount;
+    const totalLpns = bahiaFiltrada.lpnsSet.size;
+    const totalSkus = bahiaFiltrada.skusSet.size;
 
     const teorica = obtenerCurvaDominanteBahia(rawData);
-    const cumplimiento = (rawData && rawData.lineasCount > 0) ? Math.round((rawData.cumplimientoCount / rawData.lineasCount) * 100) : 0;
+    const cumplimiento = totalLineas > 0 ? Math.round((bahiaFiltrada.cumplimientoCount / totalLineas) * 100) : 0;
 
     const el = document.createElement("div");
     el.className = "bay-card";
-    el.style.backgroundColor = getFillColor(totalLineas, maxLineas);
+    el.style.backgroundColor = getFillColor(totalLineas);
 
     let kpiClass = "kpi-none";
     if (totalLineas > 0) {
@@ -370,12 +400,12 @@ function createBayCard(pasilloKey, bahiaNum, maxLineas) {
     return el;
 }
 
-function renderPlantaBaja(selectedPasillos, totalLineasVista) {
+function renderPlantaBaja(selectedPasillos) {
     const cedisGrid = document.createElement("div");
     cedisGrid.className = "cedis-grid-pb";
 
     if (selectedPasillos.includes("101_AIP01")) {
-        cedisGrid.appendChild(createAisleModulePB("101_AIP01", totalLineasVista));
+        cedisGrid.appendChild(createAisleModulePB("101_AIP01"));
     } else {
         cedisGrid.appendChild(document.createElement("div"));
     }
@@ -386,7 +416,7 @@ function renderPlantaBaja(selectedPasillos, totalLineasVista) {
     cedisGrid.appendChild(centralCorridor);
 
     if (selectedPasillos.includes("102_AIP01")) {
-        cedisGrid.appendChild(createAisleModulePB("102_AIP01", totalLineasVista));
+        cedisGrid.appendChild(createAisleModulePB("102_AIP01"));
     } else {
         cedisGrid.appendChild(document.createElement("div"));
     }
@@ -394,7 +424,7 @@ function renderPlantaBaja(selectedPasillos, totalLineasVista) {
     mapsContainer.appendChild(cedisGrid);
 }
 
-function createAisleModulePB(pasilloKey, totalLineasVista) {
+function createAisleModulePB(pasilloKey) {
     const pasilloNum = pasilloKey.split('_')[0];
     const aisleBlock = document.createElement("div");
     aisleBlock.className = "aisle-block";
@@ -417,19 +447,35 @@ function createAisleModulePB(pasilloKey, totalLineasVista) {
     const colMsp = aisleBlock.querySelector(`#col-msp-${pasilloNum}`);
     const colPar = aisleBlock.querySelector(`#col-par-${pasilloNum}`);
 
-    for (let b = 1; b <= 20; b += 2) colImp.appendChild(createBayCard(pasilloKey, b, 250));
-    for (let b = 2; b <= 20; b += 2) colPar.appendChild(createBayCard(pasilloKey, b, 250));
+    for (let b = 1; b <= 20; b += 2) colImp.appendChild(createBayCard(pasilloKey, b));
+    for (let b = 2; b <= 20; b += 2) colPar.appendChild(createBayCard(pasilloKey, b));
+
+    // Calcular líneas totales del pasillo para obtener el porcentaje
+    let totalPasilloLineas = 0;
+    for (let b = 1; b <= 20; b++) {
+        const bObj = DATA[pasilloKey]?.[b];
+        const bFilt = filtrarBahiaPorCurva(bObj);
+        if (bFilt) totalPasilloLineas += bFilt.lineasCount;
+    }
 
     const mspList = CONFIG_MSP_PB_AIP01[pasilloNum] || [];
     mspList.forEach(item => {
         let mspLineas = 0;
+        let mspCumplimiento = 0;
+
         for (let b = item.min; b <= item.max; b++) {
             const bObj = DATA[pasilloKey]?.[b];
-            if (bObj) mspLineas += bObj.lineasCount;
+            const bFilt = filtrarBahiaPorCurva(bObj);
+            if (bFilt) {
+                mspLineas += bFilt.lineasCount;
+                mspCumplimiento += bFilt.cumplimientoCount;
+            }
         }
 
-        const pct = totalLineasVista > 0 ? (mspLineas / totalLineasVista) * 100 : 0;
-        const heatmap = getHeatmapColor(pct);
+        // Porcentaje de participación
+        const pctPart = totalPasilloLineas > 0 ? ((mspLineas / totalPasilloLineas) * 100) : 0;
+        const heatmap = getHeatmapColorPct(pctPart);
+        const pctCumplimiento = mspLineas > 0 ? Math.round((mspCumplimiento / mspLineas) * 100) : 0;
 
         const mspBlock = document.createElement("div");
         mspBlock.className = "msp-card-block";
@@ -439,7 +485,9 @@ function createAisleModulePB(pasilloKey, totalLineasVista) {
         mspBlock.innerHTML = `
             <div class="msp-card-title" style="color:${heatmap.text}">${item.msp}</div>
             <div class="msp-card-sub" style="color:${heatmap.text}">Bahías ${item.min} - ${item.max}</div>
-            <div class="msp-kpi-row" style="color:${heatmap.text}; border-color:${heatmap.border};">${mspLineas.toLocaleString()} Lín. (${pct.toFixed(1)}%)</div>
+            <div class="msp-kpi-row" style="color:${heatmap.text}; border-color:${heatmap.border};">
+                ${mspLineas.toLocaleString()} Lín. (${pctPart.toFixed(1)}%) | <span class="pa-cump-badge">${pctCumplimiento}% OK</span>
+            </div>
         `;
         colMsp.appendChild(mspBlock);
     });
@@ -447,7 +495,7 @@ function createAisleModulePB(pasilloKey, totalLineasVista) {
     return aisleBlock;
 }
 
-function renderPlantaAlta(selectedPasillos, totalLineasVista) {
+function renderPlantaAlta(selectedPasillos) {
     const gridPA = document.createElement("div");
     gridPA.className = IS_COMPACT_MODE ? "cedis-grid-pa compact" : "cedis-grid-pa";
 
@@ -465,22 +513,22 @@ function renderPlantaAlta(selectedPasillos, totalLineasVista) {
 
     for (let p = 201; p <= 227; p += 2) {
         const pKey = `${p}_AIP01`;
-        if (selectedPasillos.includes(pKey)) stackImpares.appendChild(createAisleRowPA(pKey, totalLineasVista));
+        if (selectedPasillos.includes(pKey)) stackImpares.appendChild(createAisleRowPA(pKey));
     }
 
-    stackMspLeft.appendChild(createMspCardPA("MSP201", "span-4", totalLineasVista));
-    stackMspLeft.appendChild(createMspCardPA("MSP202", "span-3", totalLineasVista));
-    stackMspLeft.appendChild(createMspCardPA("MSP203", "span-3", totalLineasVista));
-    stackMspLeft.appendChild(createMspCardPA("MSP204", "span-4", totalLineasVista));
+    stackMspLeft.appendChild(createMspCardPA("MSP201", "span-4"));
+    stackMspLeft.appendChild(createMspCardPA("MSP202", "span-3"));
+    stackMspLeft.appendChild(createMspCardPA("MSP203", "span-3"));
+    stackMspLeft.appendChild(createMspCardPA("MSP204", "span-4"));
 
-    stackMspRight.appendChild(createMspCardPA("MSP208", "span-4", totalLineasVista));
-    stackMspRight.appendChild(createMspCardPA("MSP207", "span-3", totalLineasVista));
-    stackMspRight.appendChild(createMspCardPA("MSP206", "span-3", totalLineasVista));
-    stackMspRight.appendChild(createMspCardPA("MSP205", "span-4", totalLineasVista));
+    stackMspRight.appendChild(createMspCardPA("MSP208", "span-4"));
+    stackMspRight.appendChild(createMspCardPA("MSP207", "span-3"));
+    stackMspRight.appendChild(createMspCardPA("MSP206", "span-3"));
+    stackMspRight.appendChild(createMspCardPA("MSP205", "span-4"));
 
     for (let p = 202; p <= 228; p += 2) {
         const pKey = `${p}_AIP01`;
-        if (selectedPasillos.includes(pKey)) stackPares.appendChild(createAisleRowPA(pKey, totalLineasVista));
+        if (selectedPasillos.includes(pKey)) stackPares.appendChild(createAisleRowPA(pKey));
     }
 
     gridPA.appendChild(stackImpares);
@@ -491,24 +539,38 @@ function renderPlantaAlta(selectedPasillos, totalLineasVista) {
     mapsContainer.appendChild(gridPA);
 }
 
-function createAisleRowPA(pasilloKey, totalLineasVista) {
+function createAisleRowPA(pasilloKey) {
     const pasilloNum = pasilloKey.split('_')[0];
     const card = document.createElement("div");
     card.className = IS_COMPACT_MODE ? "pa-aisle-card compact" : "pa-aisle-card";
 
     let sumLineas = 0;
+    let sumCumplimiento = 0;
     let sumLpns = new Set();
     let sumSkus = new Set();
 
     const pObj = DATA[pasilloKey] || {};
     Object.values(pObj).forEach(b => {
-        sumLineas += b.lineasCount;
-        b.lpnsSet.forEach(x => sumLpns.add(x));
-        b.skusSet.forEach(x => sumSkus.add(x));
+        const bFilt = filtrarBahiaPorCurva(b);
+        sumLineas += bFilt.lineasCount;
+        sumCumplimiento += bFilt.cumplimientoCount;
+        bFilt.lpnsSet.forEach(x => sumLpns.add(x));
+        bFilt.skusSet.forEach(x => sumSkus.add(x));
     });
 
-    const pct = totalLineasVista > 0 ? (sumLineas / totalLineasVista) * 100 : 0;
-    const heatmap = getHeatmapColor(pct);
+    let lineasGlobalesPA = 0;
+    for (let p = 201; p <= 228; p++) {
+        const pKeyAll = `${p}_AIP01`;
+        const pObjAll = DATA[pKeyAll] || {};
+        Object.values(pObjAll).forEach(b => {
+            const bFilt = filtrarBahiaPorCurva(b);
+            lineasGlobalesPA += bFilt.lineasCount;
+        });
+    }
+
+    const pctPart = lineasGlobalesPA > 0 ? ((sumLineas / lineasGlobalesPA) * 100) : 0;
+    const heatmap = getHeatmapColorPct(pctPart);
+    const pctCumplimiento = sumLineas > 0 ? Math.round((sumCumplimiento / sumLineas) * 100) : 0;
 
     if (IS_COMPACT_MODE) {
         card.style.background = heatmap.bg;
@@ -518,13 +580,13 @@ function createAisleRowPA(pasilloKey, totalLineasVista) {
             <div class="pa-compact-title" style="color:${heatmap.text}">PASILLO ${pasilloNum}</div>
             <div class="pa-compact-metrics-row">
                 <span class="pa-kpi-chip" style="color:${heatmap.text}; border-color:${heatmap.border}; font-weight:900;">
-                    ${sumLineas.toLocaleString()} Lín. <small style="font-weight:700;">(${pct.toFixed(1)}%)</small>
+                    ${sumLineas.toLocaleString()} Lín. (${pctPart.toFixed(1)}%)
                 </span>
                 <span class="pa-kpi-chip" style="color:${heatmap.text}; border-color:${heatmap.border};">
-                    ${sumLpns.size} LPN
+                    ${sumLpns.size} LPN | ${sumSkus.size} SKU
                 </span>
-                <span class="pa-kpi-chip" style="color:${heatmap.text}; border-color:${heatmap.border};">
-                    ${sumSkus.size} SKU
+                <span class="compact-badge-cump ${pctCumplimiento >= 80 ? 'good' : (pctCumplimiento >= 50 ? 'mid' : 'bad')}">
+                    ${pctCumplimiento}% Cump.
                 </span>
             </div>
         `;
@@ -532,7 +594,12 @@ function createAisleRowPA(pasilloKey, totalLineasVista) {
     }
 
     card.innerHTML = `
-        <div class="pa-aisle-header">PASILLO ${pasilloNum}</div>
+        <div class="pa-aisle-header">
+            PASILLO ${pasilloNum} 
+            <span class="pa-cump-badge ${pctCumplimiento >= 80 ? 'good' : (pctCumplimiento >= 50 ? 'mid' : 'bad')}">
+                ${pctCumplimiento}% Cump. Curva
+            </span>
+        </div>
         <div class="pa-bay-grid">
             <div class="pa-bay-row" id="row-imp-${pasilloNum}"></div>
             <div class="pa-bay-row" id="row-par-${pasilloNum}"></div>
@@ -545,26 +612,40 @@ function createAisleRowPA(pasilloKey, totalLineasVista) {
     const imparesOrder = [9, 7, 5, 3, 1];
     const paresOrder = [10, 8, 6, 4, 2];
 
-    imparesOrder.forEach(b => rowImp.appendChild(createBayCard(pasilloKey, b, 200)));
-    paresOrder.forEach(b => rowPar.appendChild(createBayCard(pasilloKey, b, 200)));
+    imparesOrder.forEach(b => rowImp.appendChild(createBayCard(pasilloKey, b)));
+    paresOrder.forEach(b => rowPar.appendChild(createBayCard(pasilloKey, b)));
 
     return card;
 }
 
-function createMspCardPA(mspKey, spanClass, totalLineasVista) {
+function createMspCardPA(mspKey, spanClass) {
     const pasillosMsp = MAPA_PA_MSP_AIP01[mspKey] || [];
     let lineasTotal = 0;
+    let cumplimientoTotal = 0;
 
     pasillosMsp.forEach(p => {
         const pKey = `${p}_AIP01`;
         const pObj = DATA[pKey] || {};
         Object.values(pObj).forEach(b => {
-            lineasTotal += b.lineasCount;
+            const bFilt = filtrarBahiaPorCurva(b);
+            lineasTotal += bFilt.lineasCount;
+            cumplimientoTotal += bFilt.cumplimientoCount;
         });
     });
 
-    const pct = totalLineasVista > 0 ? (lineasTotal / totalLineasVista) * 100 : 0;
-    const heatmap = getHeatmapColor(pct);
+    // Calcular el total general de la vista para la participación global de los MSP
+    let lineasGlobalesPA = 0;
+    for (let p = 201; p <= 228; p++) {
+        const pObj = DATA[`${p}_AIP01`] || {};
+        Object.values(pObj).forEach(b => {
+            const bFilt = filtrarBahiaPorCurva(b);
+            lineasGlobalesPA += bFilt.lineasCount;
+        });
+    }
+
+    const pctPart = lineasGlobalesPA > 0 ? ((lineasTotal / lineasGlobalesPA) * 100) : 0;
+    const heatmap = getHeatmapColorPct(pctPart);
+    const pctCumplimiento = lineasTotal > 0 ? Math.round((cumplimientoTotal / lineasTotal) * 100) : 0;
 
     const el = document.createElement("div");
     el.className = `pa-msp-card ${spanClass} ${IS_COMPACT_MODE ? 'compact' : ''}`;
@@ -573,39 +654,63 @@ function createMspCardPA(mspKey, spanClass, totalLineasVista) {
 
     el.innerHTML = `
         <div class="msp-card-title" style="color:${heatmap.text}">${mspKey}</div>
-        <div class="msp-kpi-row" style="color:${heatmap.text}; border-color:${heatmap.border};">${lineasTotal.toLocaleString()} Lín. (${pct.toFixed(1)}%)</div>
+        <div class="msp-kpi-row" style="color:${heatmap.text}; border-color:${heatmap.border}; font-size: 13px;">
+            ${lineasTotal.toLocaleString()} Lín. (${pctPart.toFixed(1)}%)
+        </div>
+        <div style="margin-top: 4px;">
+            <span class="compact-badge-cump ${pctCumplimiento >= 80 ? 'good' : (pctCumplimiento >= 50 ? 'mid' : 'bad')}">
+                ${pctCumplimiento}% Cump. Curva
+            </span>
+        </div>
     `;
     return el;
 }
 
-function renderAIP02Layout(selectedPasillos, totalLineasVista) {
+function renderAIP02Layout(selectedPasillos) {
     const vista = viewSelect.value;
     const config = CONFIG_AIP02[vista];
 
     const layoutContainer = document.createElement("div");
     layoutContainer.className = "aip02-layout-grid";
 
+    // Obtener el total de líneas de todo el sector AIP02
+    let lineasTotalesAIP02 = 0;
+    [...config.arriba, ...config.abajo].forEach(p => {
+        const pKey = `${p}_AIP02`;
+        for (let b = 1; b <= 8; b++) {
+            const bObj = DATA[pKey]?.[b];
+            const bFilt = filtrarBahiaPorCurva(bObj);
+            if (bFilt) lineasTotalesAIP02 += bFilt.lineasCount;
+        }
+    });
+
     const topSector = document.createElement("div");
     topSector.className = "aip02-sector";
     config.arriba.forEach(p => {
         const pKey = `${p}_AIP02`;
-        if (selectedPasillos.includes(pKey)) topSector.appendChild(createAipAisleModule(pKey, "TOP", totalLineasVista));
+        if (selectedPasillos.includes(pKey)) topSector.appendChild(createAipAisleModule(pKey, "TOP", lineasTotalesAIP02));
     });
 
     const msrTopRow = document.createElement("div");
     msrTopRow.className = "msr-row-grid";
     config.msrTop.forEach(m => {
         let sumLineas = 0;
+        let sumCumplimiento = 0;
         m.pasillos.forEach(p => {
             const pKey = `${p}_AIP02`;
             for (let b = 1; b <= 8; b++) {
                 const bObj = DATA[pKey]?.[b];
-                if (bObj) sumLineas += bObj.lineasCount;
+                const bFilt = filtrarBahiaPorCurva(bObj);
+                if (bFilt) {
+                    sumLineas += bFilt.lineasCount;
+                    sumCumplimiento += bFilt.cumplimientoCount;
+                }
             }
         });
 
-        const pct = totalLineasVista > 0 ? (sumLineas / totalLineasVista) * 100 : 0;
-        const heatmap = getHeatmapColor(pct);
+        const pctPart = lineasTotalesAIP02 > 0 ? ((sumLineas / lineasTotalesAIP02) * 100) : 0;
+        const heatmap = getHeatmapColorPct(pctPart);
+        const pctCumplimiento = sumLineas > 0 ? Math.round((sumCumplimiento / sumLineas) * 100) : 0;
 
         const msrEl = document.createElement("div");
         msrEl.className = `msr-card-h msr-span-${m.pasillos.length}`;
@@ -614,7 +719,9 @@ function renderAIP02Layout(selectedPasillos, totalLineasVista) {
 
         msrEl.innerHTML = `
             <div class="msp-card-title" style="color:${heatmap.text}">${m.id}</div>
-            <div class="msp-kpi-row" style="color:${heatmap.text}; border-color:${heatmap.border}; font-size: 16px; font-weight: 900;">${sumLineas.toLocaleString()} Lín. (${pct.toFixed(1)}%)</div>
+            <div class="msp-kpi-row" style="color:${heatmap.text}; border-color:${heatmap.border}; font-size: 14px; font-weight: 900;">
+                ${sumLineas.toLocaleString()} Lín. (${pctPart.toFixed(1)}%) | <span class="pa-cump-badge">${pctCumplimiento}% OK</span>
+            </div>
         `;
         msrTopRow.appendChild(msrEl);
     });
@@ -623,16 +730,22 @@ function renderAIP02Layout(selectedPasillos, totalLineasVista) {
     msrBottomRow.className = "msr-row-grid";
     config.msrBottom.forEach(m => {
         let sumLineas = 0;
+        let sumCumplimiento = 0;
         m.pasillos.forEach(p => {
             const pKey = `${p}_AIP02`;
             for (let b = 1; b <= 8; b++) {
                 const bObj = DATA[pKey]?.[b];
-                if (bObj) sumLineas += bObj.lineasCount;
+                const bFilt = filtrarBahiaPorCurva(bObj);
+                if (bFilt) {
+                    sumLineas += bFilt.lineasCount;
+                    sumCumplimiento += bFilt.cumplimientoCount;
+                }
             }
         });
 
-        const pct = totalLineasVista > 0 ? (sumLineas / totalLineasVista) * 100 : 0;
-        const heatmap = getHeatmapColor(pct);
+        const pctPart = lineasTotalesAIP02 > 0 ? ((sumLineas / lineasTotalesAIP02) * 100) : 0;
+        const heatmap = getHeatmapColorPct(pctPart);
+        const pctCumplimiento = sumLineas > 0 ? Math.round((sumCumplimiento / sumLineas) * 100) : 0;
 
         const msrEl = document.createElement("div");
         msrEl.className = `msr-card-h msr-span-${m.pasillos.length}`;
@@ -641,7 +754,9 @@ function renderAIP02Layout(selectedPasillos, totalLineasVista) {
 
         msrEl.innerHTML = `
             <div class="msp-card-title" style="color:${heatmap.text}">${m.id}</div>
-            <div class="msp-kpi-row" style="color:${heatmap.text}; border-color:${heatmap.border}; font-size: 16px; font-weight: 900;">${sumLineas.toLocaleString()} Lín. (${pct.toFixed(1)}%)</div>
+            <div class="msp-kpi-row" style="color:${heatmap.text}; border-color:${heatmap.border}; font-size: 14px; font-weight: 900;">
+                ${sumLineas.toLocaleString()} Lín. (${pctPart.toFixed(1)}%) | <span class="pa-cump-badge">${pctCumplimiento}% OK</span>
+            </div>
         `;
         msrBottomRow.appendChild(msrEl);
     });
@@ -650,7 +765,7 @@ function renderAIP02Layout(selectedPasillos, totalLineasVista) {
     bottomSector.className = "aip02-sector";
     config.abajo.forEach(p => {
         const pKey = `${p}_AIP02`;
-        if (selectedPasillos.includes(pKey)) bottomSector.appendChild(createAipAisleModule(pKey, "BOTTOM", totalLineasVista));
+        if (selectedPasillos.includes(pKey)) bottomSector.appendChild(createAipAisleModule(pKey, "BOTTOM", lineasTotalesAIP02));
     });
 
     layoutContainer.appendChild(topSector);
@@ -661,7 +776,7 @@ function renderAIP02Layout(selectedPasillos, totalLineasVista) {
     mapsContainer.appendChild(layoutContainer);
 }
 
-function createAipAisleModule(pasilloKey, ubicacionSector, totalLineasVista) {
+function createAipAisleModule(pasilloKey, ubicacionSector, totalSectorLines = 0) {
     const pasilloNum = pasilloKey.split('_')[0];
     const card = document.createElement("div");
     card.className = IS_COMPACT_MODE ? "horizontal-aisle-card compact" : "horizontal-aisle-card";
@@ -677,25 +792,22 @@ function createAipAisleModule(pasilloKey, ubicacionSector, totalLineasVista) {
     const esUnicaCara = soloPares || soloImpares;
 
     let sumLineas = 0;
+    let sumCumplimiento = 0;
     let sumLpns = new Set();
     let sumSkus = new Set();
-    let totalCumplimientoSum = 0;
-    let bahiasConLineas = 0;
 
     const pObj = DATA[pasilloKey] || {};
     Object.values(pObj).forEach(b => {
-        sumLineas += b.lineasCount;
-        b.lpnsSet.forEach(l => sumLpns.add(l));
-        b.skusSet.forEach(s => sumSkus.add(s));
-        if (b.lineasCount > 0) {
-            totalCumplimientoSum += (b.cumplimientoCount / b.lineasCount) * 100;
-            bahiasConLineas++;
-        }
+        const bFilt = filtrarBahiaPorCurva(b);
+        sumLineas += bFilt.lineasCount;
+        sumCumplimiento += bFilt.cumplimientoCount;
+        bFilt.lpnsSet.forEach(l => sumLpns.add(l));
+        bFilt.skusSet.forEach(s => sumSkus.add(s));
     });
 
-    const pctCumplimiento = bahiasConLineas > 0 ? Math.round(totalCumplimientoSum / bahiasConLineas) : 0;
-    const pctVolumen = totalLineasVista > 0 ? (sumLineas / totalLineasVista) * 100 : 0;
-    const heatmap = getHeatmapColor(pctVolumen);
+    const pctPart = totalSectorLines > 0 ? ((sumLineas / totalSectorLines) * 100) : 0;
+    const pctCumplimiento = sumLineas > 0 ? Math.round((sumCumplimiento / sumLineas) * 100) : 0;
+    const heatmap = getHeatmapColorPct(pctPart);
 
     if (IS_COMPACT_MODE) {
         card.style.background = heatmap.bg;
@@ -706,7 +818,7 @@ function createAipAisleModule(pasilloKey, ubicacionSector, totalLineasVista) {
                 <span class="compact-aisle-title" style="color:${heatmap.text}">PASILLO ${pasilloNum}</span>
                 <span class="compact-badge-cump ${pctCumplimiento >= 80 ? 'good' : (pctCumplimiento >= 50 ? 'mid' : 'bad')}">${pctCumplimiento}% OK</span>
             </div>
-            <div class="compact-big-kpi" style="color:${heatmap.text}">${sumLineas.toLocaleString()} <small>Lín.</small></div>
+            <div class="compact-big-kpi" style="color:${heatmap.text}">${sumLineas.toLocaleString()} <small>Lín. (${pctPart.toFixed(1)}%)</small></div>
             <div class="compact-sub-metrics" style="color:${heatmap.text}">
                 <span>${sumLpns.size} LPN</span> | <span>${sumSkus.size} SKU</span>
             </div>
@@ -742,8 +854,8 @@ function createAipAisleModule(pasilloKey, ubicacionSector, totalLineasVista) {
         paresOrder = paresOrder.reverse();
     }
 
-    if (colPar) paresOrder.forEach(b => colPar.appendChild(createBayCard(pasilloKey, b, 150)));
-    if (colImp) imparesOrder.forEach(b => colImp.appendChild(createBayCard(pasilloKey, b, 150)));
+    if (colPar) paresOrder.forEach(b => colPar.appendChild(createBayCard(pasilloKey, b)));
+    if (colImp) imparesOrder.forEach(b => colImp.appendChild(createBayCard(pasilloKey, b)));
 
     return card;
 }
@@ -759,14 +871,12 @@ function render() {
         return;
     }
 
-    const totalLineasVista = getTotalLineasVista(selected);
-
     if (vista === "PB") {
-        renderPlantaBaja(selected, totalLineasVista);
+        renderPlantaBaja(selected);
     } else if (vista === "PA") {
-        renderPlantaAlta(selected, totalLineasVista);
+        renderPlantaAlta(selected);
     } else if (CONFIG_AIP02[vista]) {
-        renderAIP02Layout(selected, totalLineasVista);
+        renderAIP02Layout(selected);
     }
 
     actualizarResumenKPIs(selected);
@@ -776,24 +886,20 @@ function actualizarResumenKPIs(selectedPasillos) {
     let grandLineas = 0;
     let grandLpnsSet = new Set();
     let grandSkusSet = new Set();
-    let totalCumplimientoSum = 0;
-    let bahiasConLineas = 0;
+    let grandCumplimientoCount = 0;
 
     selectedPasillos.forEach(pKey => {
         const rawP = DATA[pKey] || {};
         Object.values(rawP).forEach(b => {
-            grandLineas += b.lineasCount;
-            b.lpnsSet.forEach(lpn => grandLpnsSet.add(lpn));
-            b.skusSet.forEach(sku => grandSkusSet.add(sku));
-            if (b.lineasCount > 0) {
-                const pct = (b.cumplimientoCount / b.lineasCount) * 100;
-                totalCumplimientoSum += pct;
-                bahiasConLineas++;
-            }
+            const bFilt = filtrarBahiaPorCurva(b);
+            grandLineas += bFilt.lineasCount;
+            grandCumplimientoCount += bFilt.cumplimientoCount;
+            bFilt.lpnsSet.forEach(lpn => grandLpnsSet.add(lpn));
+            bFilt.skusSet.forEach(sku => grandSkusSet.add(sku));
         });
     });
 
-    const promCumplimiento = bahiasConLineas > 0 ? Math.round(totalCumplimientoSum / bahiasConLineas) : 0;
+    const promCumplimiento = grandLineas > 0 ? Math.round((grandCumplimientoCount / grandLineas) * 100) : 0;
 
     document.getElementById("totalLineas").textContent = grandLineas.toLocaleString();
     document.getElementById("totalLpns").textContent = grandLpnsSet.size.toLocaleString();
@@ -804,7 +910,9 @@ function actualizarResumenKPIs(selectedPasillos) {
 function abrirModalNiveles(pasilloKey, bahiaNum, bayData) {
     const pasilloNum = pasilloKey.split('_')[0];
     modalTitle.textContent = `Pasillo ${pasilloNum} - Bahía ${bahiaNum}`;
-    modalSubtitle.textContent = `Total Líneas: ${bayData ? bayData.lineasCount : 0}`;
+
+    const bayFiltrada = filtrarBahiaPorCurva(bayData);
+    modalSubtitle.textContent = `Total Líneas (Filtro: ${SELECTED_CURVA}): ${bayFiltrada ? bayFiltrada.lineasCount : 0}`;
 
     modalBody.innerHTML = "";
 
@@ -816,12 +924,20 @@ function abrirModalNiveles(pasilloKey, bahiaNum, bayData) {
 
     [5, 4, 3, 2, 1].forEach(n => {
         const nData = bayData.niveles?.[n] || { lineasCount: 0, teorica: 'S/A', cumplimientoCount: 0, items: [] };
-        const pctOk = nData.lineasCount > 0 ? Math.round((nData.cumplimientoCount / nData.lineasCount) * 100) : 0;
+
+        let itemsFiltrados = (nData.items || []).filter(it => {
+            if (SELECTED_CURVA === "TODAS") return true;
+            return it.curvaReal.startsWith(SELECTED_CURVA);
+        });
+
+        const numLineasNivel = itemsFiltrados.length;
+        const cumplimientoNivel = itemsFiltrados.filter(it => it.esConforme).length;
+        const pctOk = numLineasNivel > 0 ? Math.round((cumplimientoNivel / numLineasNivel) * 100) : 0;
 
         const levelRow = document.createElement("div");
         levelRow.className = "level-row";
 
-        let itemsHTML = nData.items.map(it => `
+        let itemsHTML = itemsFiltrados.map(it => `
             <span class="item-chip" style="border-left: 3px solid ${it.esConforme ? '#16a34a' : '#dc2626'}">
                 LPN: ${it.lpn} | SKU: ${it.sku} [${it.curvaReal}]
             </span>
@@ -833,8 +949,8 @@ function abrirModalNiveles(pasilloKey, bahiaNum, bayData) {
                 <div style="font-size:11px; color:#64748b;">Curva: ${nData.teorica}</div>
             </div>
             <div>
-                <strong style="font-size:13px;">${nData.lineasCount} Líneas</strong>
-                <div style="font-size:11px; font-weight:700; color:${pctOk >= 80 ? '#15803d' : '#b91c1c'};">${nData.lineasCount > 0 ? pctOk + '% OK' : 'N/A'}</div>
+                <strong style="font-size:13px;">${numLineasNivel} Líneas</strong>
+                <div style="font-size:11px; font-weight:700; color:${pctOk >= 80 ? '#15803d' : '#b91c1c'};">${numLineasNivel > 0 ? pctOk + '% OK' : 'N/A'}</div>
             </div>
             <div class="level-items">${itemsHTML}</div>
         `;
@@ -848,6 +964,11 @@ function abrirModalNiveles(pasilloKey, bahiaNum, bayData) {
 function setupEventListeners() {
     viewSelect.addEventListener("change", () => {
         fillPasillos();
+    });
+
+    curvaFilter.addEventListener("change", (e) => {
+        SELECTED_CURVA = e.target.value;
+        render();
     });
 
     btnToggleCompact.addEventListener("click", () => {
