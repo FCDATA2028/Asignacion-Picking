@@ -292,24 +292,35 @@ function getSelectedPasillos() {
     return Array.from(pasilloOptions.querySelectorAll("input[type='checkbox']:checked")).map(cb => cb.value);
 }
 
-/* Colorimetría basada en el porcentaje de participación sobre el total de líneas */
-function getHeatmapColorPct(porcentaje) {
-    if (porcentaje > 40) {
-        // MUCHO - ROJO
+/* NUEVA COLORIMETRÍA DINÁMICA: Diferenciación visual efectiva por participación */
+function getHeatmapColorPct(porcentaje, promedioEsperado = 12.5) {
+    if (porcentaje === 0) {
+        return { bg: 'linear-gradient(135deg, #f8fafc 0%, #f1f5f9 100%)', border: '#cbd5e1', text: '#64748b' };
+    }
+
+    // Si la participación es significativamente alta (Sobrecarga de líneas)
+    if (porcentaje > promedioEsperado * 1.8) {
         return { bg: 'linear-gradient(135deg, #fee2e2 0%, #fca5a5 100%)', border: '#f87171', text: '#991b1b' };
-    } else if (porcentaje >= 15) {
-        // MEDIANO - AMARILLO
+    }
+    // Si la participación supera ligeramente la media
+    else if (porcentaje > promedioEsperado * 1.2) {
         return { bg: 'linear-gradient(135deg, #fef9c3 0%, #fef08a 100%)', border: '#fde047', text: '#854d0e' };
-    } else {
-        // POCO - VERDE
-        return { bg: 'linear-gradient(135deg, #f0fdf4 0%, #dcfce7 100%)', border: '#86efac', text: '#166534' };
+    }
+    // Si la participación es óptima/equilibrada
+    else if (porcentaje >= promedioEsperado * 0.5) {
+        return { bg: 'linear-gradient(135deg, #dcfce7 0%, #86efac 100%)', border: '#4ade80', text: '#14532d' };
+    }
+    // Si la participación es reducida (Azul suave para diferenciar pasillos con baja carga como 0.3% o 2.1%)
+    else {
+        return { bg: 'linear-gradient(135deg, #e0f2fe 0%, #bae6fd 100%)', border: '#38bdf8', text: '#0369a1' };
     }
 }
 
 function getFillColor(count) {
     if (count === 0) return "#ffffff";
-    if (count <= 15) return "#dcfce7";
-    if (count <= 40) return "#fef08a";
+    if (count <= 15) return "#e0f2fe";
+    if (count <= 40) return "#dcfce7";
+    if (count <= 70) return "#fef08a";
     return "#fca5a5";
 }
 
@@ -340,7 +351,7 @@ function filtrarBahiaPorCurva(rawData) {
 
     Object.values(rawData.niveles || {}).forEach(niv => {
         (niv.items || []).forEach(it => {
-            if (it.curvaReal.startsWith(SELECTED_CURVA)) {
+            if (it.curvaReal === SELECTED_CURVA) {
                 lineasCount++;
                 if (it.lpn && it.lpn !== 'SIN LPN') lpnsSet.add(it.lpn);
                 if (it.sku) skusSet.add(it.sku);
@@ -404,8 +415,18 @@ function renderPlantaBaja(selectedPasillos) {
     const cedisGrid = document.createElement("div");
     cedisGrid.className = "cedis-grid-pb";
 
+    // EXCEPCIÓN PLANTA BAJA AIP01: Calcular total de líneas sumando Pasillo 101 y 102
+    let totalPlantaBajaAIP01 = 0;
+    ["101_AIP01", "102_AIP01"].forEach(pKey => {
+        for (let b = 1; b <= 20; b++) {
+            const bObj = DATA[pKey]?.[b];
+            const bFilt = filtrarBahiaPorCurva(bObj);
+            if (bFilt) totalPlantaBajaAIP01 += bFilt.lineasCount;
+        }
+    });
+
     if (selectedPasillos.includes("101_AIP01")) {
-        cedisGrid.appendChild(createAisleModulePB("101_AIP01"));
+        cedisGrid.appendChild(createAisleModulePB("101_AIP01", totalPlantaBajaAIP01));
     } else {
         cedisGrid.appendChild(document.createElement("div"));
     }
@@ -416,7 +437,7 @@ function renderPlantaBaja(selectedPasillos) {
     cedisGrid.appendChild(centralCorridor);
 
     if (selectedPasillos.includes("102_AIP01")) {
-        cedisGrid.appendChild(createAisleModulePB("102_AIP01"));
+        cedisGrid.appendChild(createAisleModulePB("102_AIP01", totalPlantaBajaAIP01));
     } else {
         cedisGrid.appendChild(document.createElement("div"));
     }
@@ -424,7 +445,7 @@ function renderPlantaBaja(selectedPasillos) {
     mapsContainer.appendChild(cedisGrid);
 }
 
-function createAisleModulePB(pasilloKey) {
+function createAisleModulePB(pasilloKey, totalPlantaBajaAIP01 = 0) {
     const pasilloNum = pasilloKey.split('_')[0];
     const aisleBlock = document.createElement("div");
     aisleBlock.className = "aisle-block";
@@ -450,14 +471,6 @@ function createAisleModulePB(pasilloKey) {
     for (let b = 1; b <= 20; b += 2) colImp.appendChild(createBayCard(pasilloKey, b));
     for (let b = 2; b <= 20; b += 2) colPar.appendChild(createBayCard(pasilloKey, b));
 
-    // Calcular líneas totales del pasillo para obtener el porcentaje
-    let totalPasilloLineas = 0;
-    for (let b = 1; b <= 20; b++) {
-        const bObj = DATA[pasilloKey]?.[b];
-        const bFilt = filtrarBahiaPorCurva(bObj);
-        if (bFilt) totalPasilloLineas += bFilt.lineasCount;
-    }
-
     const mspList = CONFIG_MSP_PB_AIP01[pasilloNum] || [];
     mspList.forEach(item => {
         let mspLineas = 0;
@@ -472,9 +485,9 @@ function createAisleModulePB(pasilloKey) {
             }
         }
 
-        // Porcentaje de participación
-        const pctPart = totalPasilloLineas > 0 ? ((mspLineas / totalPasilloLineas) * 100) : 0;
-        const heatmap = getHeatmapColorPct(pctPart);
+        // CÁLCULO DE EXCEPCIÓN: Porcentaje basado sobre la suma total de Planta Baja (101 + 102)
+        const pctPart = totalPlantaBajaAIP01 > 0 ? ((mspLineas / totalPlantaBajaAIP01) * 100) : 0;
+        const heatmap = getHeatmapColorPct(pctPart, 10.0); // 10.0% es el promedio ideal por MSP (10 MSP en PB)
         const pctCumplimiento = mspLineas > 0 ? Math.round((mspCumplimiento / mspLineas) * 100) : 0;
 
         const mspBlock = document.createElement("div");
@@ -511,24 +524,33 @@ function renderPlantaAlta(selectedPasillos) {
     const stackPares = document.createElement("div");
     stackPares.className = "pa-aisle-stack";
 
-    for (let p = 201; p <= 227; p += 2) {
-        const pKey = `${p}_AIP01`;
-        if (selectedPasillos.includes(pKey)) stackImpares.appendChild(createAisleRowPA(pKey));
+    let lineasGlobalesPA = 0;
+    for (let p = 201; p <= 228; p++) {
+        const pObjAll = DATA[`${p}_AIP01`] || {};
+        Object.values(pObjAll).forEach(b => {
+            const bFilt = filtrarBahiaPorCurva(b);
+            lineasGlobalesPA += bFilt.lineasCount;
+        });
     }
 
-    stackMspLeft.appendChild(createMspCardPA("MSP201", "span-4"));
-    stackMspLeft.appendChild(createMspCardPA("MSP202", "span-3"));
-    stackMspLeft.appendChild(createMspCardPA("MSP203", "span-3"));
-    stackMspLeft.appendChild(createMspCardPA("MSP204", "span-4"));
+    for (let p = 201; p <= 227; p += 2) {
+        const pKey = `${p}_AIP01`;
+        if (selectedPasillos.includes(pKey)) stackImpares.appendChild(createAisleRowPA(pKey, lineasGlobalesPA));
+    }
 
-    stackMspRight.appendChild(createMspCardPA("MSP208", "span-4"));
-    stackMspRight.appendChild(createMspCardPA("MSP207", "span-3"));
-    stackMspRight.appendChild(createMspCardPA("MSP206", "span-3"));
-    stackMspRight.appendChild(createMspCardPA("MSP205", "span-4"));
+    stackMspLeft.appendChild(createMspCardPA("MSP201", "span-4", lineasGlobalesPA));
+    stackMspLeft.appendChild(createMspCardPA("MSP202", "span-3", lineasGlobalesPA));
+    stackMspLeft.appendChild(createMspCardPA("MSP203", "span-3", lineasGlobalesPA));
+    stackMspLeft.appendChild(createMspCardPA("MSP204", "span-4", lineasGlobalesPA));
+
+    stackMspRight.appendChild(createMspCardPA("MSP208", "span-4", lineasGlobalesPA));
+    stackMspRight.appendChild(createMspCardPA("MSP207", "span-3", lineasGlobalesPA));
+    stackMspRight.appendChild(createMspCardPA("MSP206", "span-3", lineasGlobalesPA));
+    stackMspRight.appendChild(createMspCardPA("MSP205", "span-4", lineasGlobalesPA));
 
     for (let p = 202; p <= 228; p += 2) {
         const pKey = `${p}_AIP01`;
-        if (selectedPasillos.includes(pKey)) stackPares.appendChild(createAisleRowPA(pKey));
+        if (selectedPasillos.includes(pKey)) stackPares.appendChild(createAisleRowPA(pKey, lineasGlobalesPA));
     }
 
     gridPA.appendChild(stackImpares);
@@ -539,7 +561,7 @@ function renderPlantaAlta(selectedPasillos) {
     mapsContainer.appendChild(gridPA);
 }
 
-function createAisleRowPA(pasilloKey) {
+function createAisleRowPA(pasilloKey, lineasGlobalesPA = 0) {
     const pasilloNum = pasilloKey.split('_')[0];
     const card = document.createElement("div");
     card.className = IS_COMPACT_MODE ? "pa-aisle-card compact" : "pa-aisle-card";
@@ -558,24 +580,14 @@ function createAisleRowPA(pasilloKey) {
         bFilt.skusSet.forEach(x => sumSkus.add(x));
     });
 
-    let lineasGlobalesPA = 0;
-    for (let p = 201; p <= 228; p++) {
-        const pKeyAll = `${p}_AIP01`;
-        const pObjAll = DATA[pKeyAll] || {};
-        Object.values(pObjAll).forEach(b => {
-            const bFilt = filtrarBahiaPorCurva(b);
-            lineasGlobalesPA += bFilt.lineasCount;
-        });
-    }
-
     const pctPart = lineasGlobalesPA > 0 ? ((sumLineas / lineasGlobalesPA) * 100) : 0;
-    const heatmap = getHeatmapColorPct(pctPart);
+    const heatmap = getHeatmapColorPct(pctPart, 3.5); // Promedio esperado en PA es 3.5% por pasillo
     const pctCumplimiento = sumLineas > 0 ? Math.round((sumCumplimiento / sumLineas) * 100) : 0;
 
-    if (IS_COMPACT_MODE) {
-        card.style.background = heatmap.bg;
-        card.style.borderColor = heatmap.border;
+    card.style.background = heatmap.bg;
+    card.style.borderColor = heatmap.border;
 
+    if (IS_COMPACT_MODE) {
         card.innerHTML = `
             <div class="pa-compact-title" style="color:${heatmap.text}">PASILLO ${pasilloNum}</div>
             <div class="pa-compact-metrics-row">
@@ -594,8 +606,8 @@ function createAisleRowPA(pasilloKey) {
     }
 
     card.innerHTML = `
-        <div class="pa-aisle-header">
-            PASILLO ${pasilloNum} 
+        <div class="pa-aisle-header" style="color:${heatmap.text}">
+            PASILLO ${pasilloNum} (${pctPart.toFixed(1)}%)
             <span class="pa-cump-badge ${pctCumplimiento >= 80 ? 'good' : (pctCumplimiento >= 50 ? 'mid' : 'bad')}">
                 ${pctCumplimiento}% Cump. Curva
             </span>
@@ -618,7 +630,7 @@ function createAisleRowPA(pasilloKey) {
     return card;
 }
 
-function createMspCardPA(mspKey, spanClass) {
+function createMspCardPA(mspKey, spanClass, lineasGlobalesPA = 0) {
     const pasillosMsp = MAPA_PA_MSP_AIP01[mspKey] || [];
     let lineasTotal = 0;
     let cumplimientoTotal = 0;
@@ -633,18 +645,8 @@ function createMspCardPA(mspKey, spanClass) {
         });
     });
 
-    // Calcular el total general de la vista para la participación global de los MSP
-    let lineasGlobalesPA = 0;
-    for (let p = 201; p <= 228; p++) {
-        const pObj = DATA[`${p}_AIP01`] || {};
-        Object.values(pObj).forEach(b => {
-            const bFilt = filtrarBahiaPorCurva(b);
-            lineasGlobalesPA += bFilt.lineasCount;
-        });
-    }
-
     const pctPart = lineasGlobalesPA > 0 ? ((lineasTotal / lineasGlobalesPA) * 100) : 0;
-    const heatmap = getHeatmapColorPct(pctPart);
+    const heatmap = getHeatmapColorPct(pctPart, 12.5);
     const pctCumplimiento = lineasTotal > 0 ? Math.round((cumplimientoTotal / lineasTotal) * 100) : 0;
 
     const el = document.createElement("div");
@@ -673,7 +675,6 @@ function renderAIP02Layout(selectedPasillos) {
     const layoutContainer = document.createElement("div");
     layoutContainer.className = "aip02-layout-grid";
 
-    // Obtener el total de líneas de todo el sector AIP02
     let lineasTotalesAIP02 = 0;
     [...config.arriba, ...config.abajo].forEach(p => {
         const pKey = `${p}_AIP02`;
@@ -709,7 +710,7 @@ function renderAIP02Layout(selectedPasillos) {
         });
 
         const pctPart = lineasTotalesAIP02 > 0 ? ((sumLineas / lineasTotalesAIP02) * 100) : 0;
-        const heatmap = getHeatmapColorPct(pctPart);
+        const heatmap = getHeatmapColorPct(pctPart, 25.0);
         const pctCumplimiento = sumLineas > 0 ? Math.round((sumCumplimiento / sumLineas) * 100) : 0;
 
         const msrEl = document.createElement("div");
@@ -744,7 +745,7 @@ function renderAIP02Layout(selectedPasillos) {
         });
 
         const pctPart = lineasTotalesAIP02 > 0 ? ((sumLineas / lineasTotalesAIP02) * 100) : 0;
-        const heatmap = getHeatmapColorPct(pctPart);
+        const heatmap = getHeatmapColorPct(pctPart, 25.0);
         const pctCumplimiento = sumLineas > 0 ? Math.round((sumCumplimiento / sumLineas) * 100) : 0;
 
         const msrEl = document.createElement("div");
@@ -807,12 +808,14 @@ function createAipAisleModule(pasilloKey, ubicacionSector, totalSectorLines = 0)
 
     const pctPart = totalSectorLines > 0 ? ((sumLineas / totalSectorLines) * 100) : 0;
     const pctCumplimiento = sumLineas > 0 ? Math.round((sumCumplimiento / sumLineas) * 100) : 0;
-    const heatmap = getHeatmapColorPct(pctPart);
+
+    // Promedio por pasillo en AIP02 es 6.25% (16 pasillos por planta)
+    const heatmap = getHeatmapColorPct(pctPart, 6.25);
+
+    card.style.background = heatmap.bg;
+    card.style.borderColor = heatmap.border;
 
     if (IS_COMPACT_MODE) {
-        card.style.background = heatmap.bg;
-        card.style.borderColor = heatmap.border;
-
         card.innerHTML = `
             <div class="compact-header-row">
                 <span class="compact-aisle-title" style="color:${heatmap.text}">PASILLO ${pasilloNum}</span>
@@ -827,7 +830,10 @@ function createAipAisleModule(pasilloKey, ubicacionSector, totalSectorLines = 0)
     }
 
     card.innerHTML = `
-        <div class="aisle-title">PASILLO ${pasilloNum} ${esUnicaCara ? '<small>(1 Cara)</small>' : '<small>(2 Caras)</small>'}</div>
+        <div class="aisle-title" style="color:${heatmap.text}">
+            PASILLO ${pasilloNum} ${esUnicaCara ? '<small>(1 Cara)</small>' : '<small>(2 Caras)</small>'}
+            <span class="pa-cump-badge ${pctCumplimiento >= 80 ? 'good' : (pctCumplimiento >= 50 ? 'mid' : 'bad')}">${pctCumplimiento}% OK</span>
+        </div>
         <div class="horizontal-bay-grid ${esUnicaCara ? 'single-face' : 'double-face'}">
             ${!soloImpares ? `
             <div class="bay-col-side" id="col-par-${pasilloNum}">
@@ -927,7 +933,7 @@ function abrirModalNiveles(pasilloKey, bahiaNum, bayData) {
 
         let itemsFiltrados = (nData.items || []).filter(it => {
             if (SELECTED_CURVA === "TODAS") return true;
-            return it.curvaReal.startsWith(SELECTED_CURVA);
+            return it.curvaReal === SELECTED_CURVA;
         });
 
         const numLineasNivel = itemsFiltrados.length;
