@@ -64,6 +64,17 @@ body {
     color: #0f172a;
 }
 
+.input-ranking {
+    padding: 6px 12px;
+    border: 1px solid #cbd5e1;
+    border-radius: 6px;
+    background-color: #ffffff;
+    font-weight: 700;
+    font-size: 12px;
+    color: #0f172a;
+    width: 120px;
+}
+
 .container {
     max-width: 100%;
     margin: 0;
@@ -160,7 +171,7 @@ body {
 
 .multi-select {
     position: relative;
-    min-width: 240px;
+    min-width: 200px;
 }
 
 .multi-button {
@@ -241,6 +252,168 @@ body {
     display: flex;
     flex-direction: column;
     overflow-y: auto;
+    height: 100%;
+}
+
+/* ESTRUCTURA GERENCIAL MSP / MSR PANTALLA COMPLETA */
+.gerencial-dashboard-layout {
+    display: flex;
+    flex-direction: column;
+    gap: 16px;
+    height: 100%;
+    width: 100%;
+}
+
+.gerencial-section {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+}
+
+.farmacia-section {
+    flex: 0 0 auto;
+}
+
+.sala-section {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+}
+
+.section-title {
+    font-size: 13px;
+    font-weight: 900;
+    color: #0f172a;
+    border-bottom: 2px solid #cbd5e1;
+    padding-bottom: 4px;
+    letter-spacing: 0.5px;
+}
+
+.gerencial-two-cols {
+    display: grid;
+    grid-template-columns: repeat(2, 1fr);
+    gap: 14px;
+}
+
+.gerencial-three-cols {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 14px;
+    flex: 1;
+}
+
+.gerencial-card {
+    background: #ffffff;
+    color: #0f172a;
+    border: 1.5px solid #cbd5e1;
+    border-radius: 8px;
+    padding: 12px 14px;
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.04);
+    display: flex;
+    flex-direction: column;
+}
+
+.gerencial-card-title {
+    font-size: 13px;
+    font-weight: 900;
+    text-transform: uppercase;
+    color: #1e293b;
+}
+
+.gerencial-card-sub {
+    font-size: 10px;
+    color: #64748b;
+    margin-bottom: 10px;
+    font-weight: 700;
+}
+
+.gerencial-body {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    flex: 1;
+    justify-content: space-evenly;
+}
+
+.gerencial-row {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    font-size: 11px;
+}
+
+.gerencial-label {
+    width: 65px;
+    font-weight: 800;
+    color: #334155;
+    white-space: nowrap;
+}
+
+.gerencial-bar-container {
+    flex: 1;
+    background: #e2e8f0;
+    height: 14px;
+    border-radius: 7px;
+    overflow: hidden;
+}
+
+.gerencial-bar-fill {
+    height: 100%;
+    border-radius: 7px;
+    transition: width 0.4s ease, background-color 0.3s ease;
+}
+
+/* ANIMACIÓN PARPADEO ROJO PARA LA MAYOR BARRA */
+@keyframes pulse-red {
+    0% {
+        background-color: #ef4444;
+        opacity: 1;
+    }
+
+    50% {
+        background-color: #b91c1c;
+        opacity: 0.55;
+    }
+
+    100% {
+        background-color: #ef4444;
+        opacity: 1;
+    }
+}
+
+.pulse-max-red {
+    animation: pulse-red 1.8s infinite ease-in-out;
+}
+
+.gerencial-val {
+    width: 65px;
+    text-align: right;
+    font-weight: 800;
+    color: #0f172a;
+}
+
+.gerencial-cump {
+    width: 55px;
+    text-align: right;
+    font-weight: 900;
+    padding: 2px 4px;
+    border-radius: 4px;
+}
+
+/* COLORES DE CUMPLIMIENTO */
+.cump-good {
+    color: #15803d;
+    background: #dcfce7;
+}
+
+.cump-mid {
+    color: #a16207;
+    background: #fef9c3;
+}
+
+.cump-bad {
+    color: #b91c1c;
+    background: #fee2e2;
 }
 
 .aip02-layout-grid {
