@@ -6,7 +6,11 @@ let MAP_SKU = new Map();
 let MAP_UBICACION = new Map();
 let DATA = {};
 let IS_COMPACT_MODE = false;
-let SELECTED_CURVA = "TODAS";
+
+// Lista de curvas disponibles para Checkpoints
+const LISTA_CURVAS = ["A1F", "A2F", "A1S", "A2S", "B1F", "B1S", "B2S", "C1S", "C2S"];
+let SELECTED_CURVAS = new Set(LISTA_CURVAS);
+let SELECTED_RANKING = 0; // 0 = Sin filtro de Ranking (Todos los SKUs)
 
 const CONFIG_MSP_PB_AIP01 = {
     "101": [
@@ -76,13 +80,23 @@ const CONFIG_AIP02 = {
 };
 
 const viewSelect = document.getElementById("viewSelect");
-const curvaFilter = document.getElementById("curvaFilter");
+const curvaMultiBtn = document.getElementById("curvaMultiBtn");
+const curvaMultiBtnText = document.getElementById("curvaMultiBtnText");
+const curvaDropdown = document.getElementById("curvaDropdown");
+const curvaOptions = document.getElementById("curvaOptions");
+const btnSelectAllCurvas = document.getElementById("btnSelectAllCurvas");
+const btnClearAllCurvas = document.getElementById("btnClearAllCurvas");
+
+const rankingInput = document.getElementById("rankingInput");
+
+const pasilloSelectWrapper = document.getElementById("pasilloSelectWrapper");
 const multiButton = document.getElementById("multiButton");
 const multiDropdown = document.getElementById("multiDropdown");
 const pasilloOptions = document.getElementById("pasilloOptions");
-const mapsContainer = document.getElementById("mapsContainer");
 const btnSelectAll = document.getElementById("btnSelectAll");
 const btnClearAll = document.getElementById("btnClearAll");
+
+const mapsContainer = document.getElementById("mapsContainer");
 const statusSub = document.getElementById("status-sub");
 const btnToggleCompact = document.getElementById("btnToggleCompact");
 
@@ -96,9 +110,47 @@ document.addEventListener('DOMContentLoaded', init);
 
 async function init() {
     setupEventListeners();
+    fillCurvaCheckpoints();
     await fetchMaestroSKU();
     await fetchMaestroUbicacion();
     await fetchInventarioCompleto();
+}
+
+function fillCurvaCheckpoints() {
+    curvaOptions.innerHTML = "";
+    LISTA_CURVAS.forEach(curva => {
+        const label = document.createElement("label");
+        label.className = "checkbox-item";
+        const checkbox = document.createElement("input");
+        checkbox.type = "checkbox";
+        checkbox.value = curva;
+        checkbox.checked = SELECTED_CURVAS.has(curva);
+
+        checkbox.addEventListener("change", (e) => {
+            if (e.target.checked) {
+                SELECTED_CURVAS.add(curva);
+            } else {
+                SELECTED_CURVAS.delete(curva);
+            }
+            updateCurvaBtnText();
+            render();
+        });
+
+        label.appendChild(checkbox);
+        label.appendChild(document.createTextNode("Curva " + curva));
+        curvaOptions.appendChild(label);
+    });
+    updateCurvaBtnText();
+}
+
+function updateCurvaBtnText() {
+    if (SELECTED_CURVAS.size === LISTA_CURVAS.length) {
+        curvaMultiBtnText.innerText = "Todas las Curvas";
+    } else if (SELECTED_CURVAS.size === 0) {
+        curvaMultiBtnText.innerText = "Ninguna Curva";
+    } else {
+        curvaMultiBtnText.innerText = `${SELECTED_CURVAS.size} Curvas Sel.`;
+    }
 }
 
 async function fetchMaestroSKU() {
@@ -108,13 +160,14 @@ async function fetchMaestroSKU() {
         const { count } = await _supabase.from('maestro_sku').select('*', { count: 'exact', head: true });
 
         while (desde < (count || 0)) {
-            const { data } = await _supabase.from('maestro_sku').select('sku, curva_oficial').range(desde, desde + paso - 1);
+            const { data } = await _supabase.from('maestro_sku').select('sku, curva_oficial, ranking').range(desde, desde + paso - 1);
             if (data && data.length > 0) {
                 data.forEach(item => {
                     if (item.sku) {
                         const skuClean = String(item.sku).trim();
-                        const curva = (item.curva_oficial && item.curva_oficial !== '#N/D') ? String(item.curva_oficial).trim() : 'S/C';
-                        MAP_SKU.set(skuClean, curva);
+                        const curva = (item.curva_oficial && item.curva_oficial !== '#N/D') ? String(item.curva_oficial).trim() : 'C (S/C)';
+                        const rankingVal = item.ranking ? parseInt(item.ranking, 10) : 999999;
+                        MAP_SKU.set(skuClean, { curva, ranking: rankingVal });
                     }
                 });
                 desde += paso;
@@ -178,24 +231,26 @@ async function fetchInventarioCompleto() {
 function evaluarCumplimiento(teorica, real) {
     if (!teorica || teorica === 'S/A' || real === 'S/C') return false;
     if (teorica.length === 1) return real.startsWith(teorica);
-    return (real === teorica);
+    return real.startsWith(teorica) || (teorica.startsWith("C") && real.startsWith("C"));
 }
 
 function procesarBloque(filas) {
     filas.forEach(row => {
         if (!row.ubicacion) return;
         const ubClean = String(row.ubicacion).trim();
+        const ubUpper = ubClean.toUpperCase();
+
+        if (!ubUpper.startsWith("AIP01") && !ubUpper.startsWith("AIP02")) {
+            return;
+        }
+
         const partes = ubClean.split('-').map(p => p.trim());
 
         if (partes.length >= 3) {
-            let area = "AIP01";
+            let area = ubUpper.startsWith("AIP02") ? "AIP02" : "AIP01";
             let pasilloNum = partes[1];
             let bahia = parseInt(partes[2], 10);
             let nivel = partes.length >= 4 ? parseInt(partes[3], 10) : 1;
-
-            if (partes[0].toUpperCase().includes("AIP02") || partes[0].toUpperCase().includes("AIP2")) {
-                area = "AIP02";
-            }
 
             const pasilloKey = `${pasilloNum}_${area}`;
 
@@ -218,7 +273,10 @@ function procesarBloque(filas) {
                 const bahiaObj = DATA[pasilloKey][bahia];
                 const codigoProd = row.codigo ? String(row.codigo).trim() : '';
                 const lpnCod = row.lpn ? String(row.lpn).trim() : 'SIN LPN';
-                const curvaReal = MAP_SKU.get(codigoProd) || 'S/C';
+
+                const metaSku = MAP_SKU.get(codigoProd) || { curva: 'C (S/C)', ranking: 999999 };
+                const curvaReal = metaSku.curva;
+                const skuRanking = metaSku.ranking;
 
                 const metaUbi = MAP_UBICACION.get(ubClean) || { curvaTeorica: 'S/A' };
                 if (metaUbi.curvaTeorica !== 'S/A') bahiaObj.teorica = metaUbi.curvaTeorica;
@@ -249,7 +307,7 @@ function procesarBloque(filas) {
                     bahiaObj.cumplimientoCount += 1;
                 }
 
-                nivelObj.items.push({ lpn: lpnCod, sku: codigoProd, curvaReal, esConforme });
+                nivelObj.items.push({ lpn: lpnCod, sku: codigoProd, curvaReal, skuRanking, esConforme });
             }
         }
     });
@@ -259,6 +317,13 @@ function fillPasillos() {
     const vista = viewSelect.value;
     pasilloOptions.innerHTML = "";
 
+    if (vista === "MSP_MSR") {
+        pasilloSelectWrapper.style.display = "none";
+        render();
+        return;
+    }
+
+    pasilloSelectWrapper.style.display = "flex";
     let pasillosFiltrados = [];
 
     if (vista === "PB") {
@@ -289,29 +354,21 @@ function fillPasillos() {
 }
 
 function getSelectedPasillos() {
+    if (viewSelect.value === "MSP_MSR") return [];
     return Array.from(pasilloOptions.querySelectorAll("input[type='checkbox']:checked")).map(cb => cb.value);
 }
 
-/* NUEVA COLORIMETRÍA DINÁMICA: Diferenciación visual efectiva por participación */
 function getHeatmapColorPct(porcentaje, promedioEsperado = 12.5) {
     if (porcentaje === 0) {
         return { bg: 'linear-gradient(135deg, #f8fafc 0%, #f1f5f9 100%)', border: '#cbd5e1', text: '#64748b' };
     }
-
-    // Si la participación es significativamente alta (Sobrecarga de líneas)
     if (porcentaje > promedioEsperado * 1.8) {
         return { bg: 'linear-gradient(135deg, #fee2e2 0%, #fca5a5 100%)', border: '#f87171', text: '#991b1b' };
-    }
-    // Si la participación supera ligeramente la media
-    else if (porcentaje > promedioEsperado * 1.2) {
+    } else if (porcentaje > promedioEsperado * 1.2) {
         return { bg: 'linear-gradient(135deg, #fef9c3 0%, #fef08a 100%)', border: '#fde047', text: '#854d0e' };
-    }
-    // Si la participación es óptima/equilibrada
-    else if (porcentaje >= promedioEsperado * 0.5) {
+    } else if (porcentaje >= promedioEsperado * 0.5) {
         return { bg: 'linear-gradient(135deg, #dcfce7 0%, #86efac 100%)', border: '#4ade80', text: '#14532d' };
-    }
-    // Si la participación es reducida (Azul suave para diferenciar pasillos con baja carga como 0.3% o 2.1%)
-    else {
+    } else {
         return { bg: 'linear-gradient(135deg, #e0f2fe 0%, #bae6fd 100%)', border: '#38bdf8', text: '#0369a1' };
     }
 }
@@ -342,7 +399,10 @@ function obtenerCurvaDominanteBahia(rawData) {
 
 function filtrarBahiaPorCurva(rawData) {
     if (!rawData) return { lineasCount: 0, lpnsSet: new Set(), skusSet: new Set(), cumplimientoCount: 0, teorica: 'S/A' };
-    if (SELECTED_CURVA === "TODAS") return rawData;
+
+    if (SELECTED_CURVAS.size === LISTA_CURVAS.length && SELECTED_RANKING <= 0) {
+        return rawData;
+    }
 
     let lineasCount = 0;
     let lpnsSet = new Set();
@@ -351,7 +411,10 @@ function filtrarBahiaPorCurva(rawData) {
 
     Object.values(rawData.niveles || {}).forEach(niv => {
         (niv.items || []).forEach(it => {
-            if (it.curvaReal === SELECTED_CURVA) {
+            const pasaCurva = SELECTED_CURVAS.has(it.curvaReal) || (it.curvaReal === 'C (S/C)' && (SELECTED_CURVAS.has("C1S") || SELECTED_CURVAS.has("C2S")));
+            const pasaRanking = (SELECTED_RANKING <= 0) || (it.skuRanking && it.skuRanking <= SELECTED_RANKING);
+
+            if (pasaCurva && pasaRanking) {
                 lineasCount++;
                 if (it.lpn && it.lpn !== 'SIN LPN') lpnsSet.add(it.lpn);
                 if (it.sku) skusSet.add(it.sku);
@@ -415,7 +478,6 @@ function renderPlantaBaja(selectedPasillos) {
     const cedisGrid = document.createElement("div");
     cedisGrid.className = "cedis-grid-pb";
 
-    // EXCEPCIÓN PLANTA BAJA AIP01: Calcular total de líneas sumando Pasillo 101 y 102
     let totalPlantaBajaAIP01 = 0;
     ["101_AIP01", "102_AIP01"].forEach(pKey => {
         for (let b = 1; b <= 20; b++) {
@@ -485,9 +547,8 @@ function createAisleModulePB(pasilloKey, totalPlantaBajaAIP01 = 0) {
             }
         }
 
-        // CÁLCULO DE EXCEPCIÓN: Porcentaje basado sobre la suma total de Planta Baja (101 + 102)
         const pctPart = totalPlantaBajaAIP01 > 0 ? ((mspLineas / totalPlantaBajaAIP01) * 100) : 0;
-        const heatmap = getHeatmapColorPct(pctPart, 10.0); // 10.0% es el promedio ideal por MSP (10 MSP en PB)
+        const heatmap = getHeatmapColorPct(pctPart, 10.0);
         const pctCumplimiento = mspLineas > 0 ? Math.round((mspCumplimiento / mspLineas) * 100) : 0;
 
         const mspBlock = document.createElement("div");
@@ -581,7 +642,7 @@ function createAisleRowPA(pasilloKey, lineasGlobalesPA = 0) {
     });
 
     const pctPart = lineasGlobalesPA > 0 ? ((sumLineas / lineasGlobalesPA) * 100) : 0;
-    const heatmap = getHeatmapColorPct(pctPart, 3.5); // Promedio esperado en PA es 3.5% por pasillo
+    const heatmap = getHeatmapColorPct(pctPart, 3.5);
     const pctCumplimiento = sumLineas > 0 ? Math.round((sumCumplimiento / sumLineas) * 100) : 0;
 
     card.style.background = heatmap.bg;
@@ -808,8 +869,6 @@ function createAipAisleModule(pasilloKey, ubicacionSector, totalSectorLines = 0)
 
     const pctPart = totalSectorLines > 0 ? ((sumLineas / totalSectorLines) * 100) : 0;
     const pctCumplimiento = sumLineas > 0 ? Math.round((sumCumplimiento / sumLineas) * 100) : 0;
-
-    // Promedio por pasillo en AIP02 es 6.25% (16 pasillos por planta)
     const heatmap = getHeatmapColorPct(pctPart, 6.25);
 
     card.style.background = heatmap.bg;
@@ -866,11 +925,166 @@ function createAipAisleModule(pasilloKey, ubicacionSector, totalSectorLines = 0)
     return card;
 }
 
+function renderVistaGerencialMSP() {
+    const gridGerencial = document.createElement("div");
+    gridGerencial.className = "gerencial-dashboard-layout";
+
+    // 1. FARMACIA (AIP01 - NIVEL 1 Y 2)
+    const mspNivel1 = [];
+    ["101", "102"].forEach(p => {
+        (CONFIG_MSP_PB_AIP01[p] || []).forEach(m => {
+            let sumL = 0, sumC = 0, skus = new Set(), lpns = new Set();
+            for (let b = m.min; b <= m.max; b++) {
+                const bFilt = filtrarBahiaPorCurva(DATA[`${p}_AIP01`]?.[b]);
+                if (bFilt) {
+                    sumL += bFilt.lineasCount;
+                    sumC += bFilt.cumplimientoCount;
+                    bFilt.skusSet.forEach(s => skus.add(s));
+                    bFilt.lpnsSet.forEach(l => lpns.add(l));
+                }
+            }
+            mspNivel1.push({ name: m.msp, lineas: sumL, cump: sumC, skus: skus.size, lpns: lpns.size });
+        });
+    });
+
+    const mspNivel2 = [];
+    Object.keys(MAPA_PA_MSP_AIP01).forEach(mspKey => {
+        let sumL = 0, sumC = 0, skus = new Set(), lpns = new Set();
+        MAPA_PA_MSP_AIP01[mspKey].forEach(p => {
+            const pObj = DATA[`${p}_AIP01`] || {};
+            Object.values(pObj).forEach(b => {
+                const bFilt = filtrarBahiaPorCurva(b);
+                if (bFilt) {
+                    sumL += bFilt.lineasCount;
+                    sumC += bFilt.cumplimientoCount;
+                    bFilt.skusSet.forEach(s => skus.add(s));
+                    bFilt.lpnsSet.forEach(l => lpns.add(l));
+                }
+            });
+        });
+        mspNivel2.push({ name: mspKey, lineas: sumL, cump: sumC, skus: skus.size, lpns: lpns.size });
+    });
+
+    // 2. SALA (AIP02 - NIVEL 1, 2 Y 3)
+    const obtenerMSRSector = (configKey) => {
+        const conf = CONFIG_AIP02[configKey];
+        const res = [];
+        [...conf.msrTop, ...conf.msrBottom].forEach(m => {
+            let sumL = 0, sumC = 0, skus = new Set(), lpns = new Set();
+            m.pasillos.forEach(p => {
+                const pKey = `${p}_AIP02`;
+                for (let b = 1; b <= 8; b++) {
+                    const bFilt = filtrarBahiaPorCurva(DATA[pKey]?.[b]);
+                    if (bFilt) {
+                        sumL += bFilt.lineasCount;
+                        sumC += bFilt.cumplimientoCount;
+                        bFilt.skusSet.forEach(s => skus.add(s));
+                        bFilt.lpnsSet.forEach(l => lpns.add(l));
+                    }
+                }
+            });
+            res.push({ name: m.id, lineas: sumL, cump: sumC, skus: skus.size, lpns: lpns.size });
+        });
+        return res;
+    };
+
+    const msrNivel1 = obtenerMSRSector("AIP_PB");
+    const msrNivel2 = obtenerMSRSector("AIP_P1");
+    const msrNivel3 = obtenerMSRSector("AIP_P2");
+
+    // FILA SUPERIOR: FARMACIA
+    const farmaciaRow = document.createElement("div");
+    farmaciaRow.className = "gerencial-section farmacia-section";
+
+    const farmaciaHeader = document.createElement("h2");
+    farmaciaHeader.className = "section-title";
+    farmaciaHeader.innerText = "🏥 SECTOR FARMACIA (AIP01)";
+    farmaciaRow.appendChild(farmaciaHeader);
+
+    const farmaciaGrid = document.createElement("div");
+    farmaciaGrid.className = "gerencial-two-cols";
+    farmaciaGrid.appendChild(crearBloqueNivelGerencial("FARMACIA - NIVEL 1", mspNivel1, "#22c55e"));
+    farmaciaGrid.appendChild(crearBloqueNivelGerencial("FARMACIA - NIVEL 2", mspNivel2, "#3b82f6"));
+    farmaciaRow.appendChild(farmaciaGrid);
+
+    // FILA INFERIOR: SALA (3 NIVELES)
+    const salaRow = document.createElement("div");
+    salaRow.className = "gerencial-section sala-section";
+
+    const salaHeader = document.createElement("h2");
+    salaHeader.className = "section-title";
+    salaHeader.innerText = "📦 SECTOR SALA (AIP02)";
+    salaRow.appendChild(salaHeader);
+
+    const salaGrid = document.createElement("div");
+    salaGrid.className = "gerencial-three-cols";
+    salaGrid.appendChild(crearBloqueNivelGerencial("SALA - NIVEL 1", msrNivel1, "#f97316"));
+    salaGrid.appendChild(crearBloqueNivelGerencial("SALA - NIVEL 2", msrNivel2, "#eab308"));
+    salaGrid.appendChild(crearBloqueNivelGerencial("SALA - NIVEL 3", msrNivel3, "#ec4899"));
+    salaRow.appendChild(salaGrid);
+
+    gridGerencial.appendChild(farmaciaRow);
+    gridGerencial.appendChild(salaRow);
+
+    mapsContainer.appendChild(gridGerencial);
+}
+
+function crearBloqueNivelGerencial(titulo, arrayItems, color) {
+    const card = document.createElement("div");
+    card.className = "gerencial-card";
+
+    let itemsOrdenados = [...arrayItems];
+    itemsOrdenados.sort((a, b) => {
+        const numA = parseInt(a.name.replace(/\D/g, ''), 10) || 0;
+        const numB = parseInt(b.name.replace(/\D/g, ''), 10) || 0;
+        return numA - numB;
+    });
+
+    let maxLineas = Math.max(...itemsOrdenados.map(i => i.lineas), 1);
+
+    let rowsHTML = itemsOrdenados.map(item => {
+        let pctBar = Math.round((item.lineas / maxLineas) * 100);
+        let pctCump = item.lineas > 0 ? Math.round((item.cump / item.lineas) * 100) : 0;
+
+        let esMax = (item.lineas === maxLineas && item.lineas > 0);
+        let barClass = esMax ? "gerencial-bar-fill pulse-max-red" : "gerencial-bar-fill";
+
+        let cumpClass = "cump-bad";
+        if (pctCump >= 80) cumpClass = "cump-good";
+        else if (pctCump >= 50) cumpClass = "cump-mid";
+
+        return `
+            <div class="gerencial-row">
+                <span class="gerencial-label">${item.name}</span>
+                <div class="gerencial-bar-container">
+                    <div class="${barClass}" style="width: ${pctBar}%; background-color: ${esMax ? '#ef4444' : color};"></div>
+                </div>
+                <span class="gerencial-val">${item.lineas.toLocaleString()} Lín.</span>
+                <span class="gerencial-cump ${cumpClass}">${pctCump}% OK</span>
+            </div>
+        `;
+    }).join('');
+
+    card.innerHTML = `
+        <div class="gerencial-card-title">${titulo}</div>
+        <div class="gerencial-card-sub">Líneas / Cumplimiento por Zona</div>
+        <div class="gerencial-body">${rowsHTML}</div>
+    `;
+
+    return card;
+}
+
 function render() {
     const vista = viewSelect.value;
-    const selected = getSelectedPasillos();
-
     mapsContainer.innerHTML = "";
+
+    if (vista === "MSP_MSR") {
+        renderVistaGerencialMSP();
+        actualizarResumenKPIsGlobales();
+        return;
+    }
+
+    const selected = getSelectedPasillos();
 
     if (selected.length === 0) {
         mapsContainer.innerHTML = `<div class="loading-overlay">Seleccione al menos un pasillo.</div>`;
@@ -886,6 +1100,30 @@ function render() {
     }
 
     actualizarResumenKPIs(selected);
+}
+
+function actualizarResumenKPIsGlobales() {
+    let grandLineas = 0;
+    let grandLpnsSet = new Set();
+    let grandSkusSet = new Set();
+    let grandCumplimientoCount = 0;
+
+    Object.values(DATA).forEach(pasillo => {
+        Object.values(pasillo).forEach(b => {
+            const bFilt = filtrarBahiaPorCurva(b);
+            grandLineas += bFilt.lineasCount;
+            grandCumplimientoCount += bFilt.cumplimientoCount;
+            bFilt.lpnsSet.forEach(l => grandLpnsSet.add(l));
+            bFilt.skusSet.forEach(s => grandSkusSet.add(s));
+        });
+    });
+
+    const promCumplimiento = grandLineas > 0 ? Math.round((grandCumplimientoCount / grandLineas) * 100) : 0;
+
+    document.getElementById("totalLineas").textContent = grandLineas.toLocaleString();
+    document.getElementById("totalLpns").textContent = grandLpnsSet.size.toLocaleString();
+    document.getElementById("totalSkus").textContent = grandSkusSet.size.toLocaleString();
+    document.getElementById("kpiCumplimiento").textContent = promCumplimiento + "%";
 }
 
 function actualizarResumenKPIs(selectedPasillos) {
@@ -918,7 +1156,7 @@ function abrirModalNiveles(pasilloKey, bahiaNum, bayData) {
     modalTitle.textContent = `Pasillo ${pasilloNum} - Bahía ${bahiaNum}`;
 
     const bayFiltrada = filtrarBahiaPorCurva(bayData);
-    modalSubtitle.textContent = `Total Líneas (Filtro: ${SELECTED_CURVA}): ${bayFiltrada ? bayFiltrada.lineasCount : 0}`;
+    modalSubtitle.textContent = `Total Líneas (Filtro Activo): ${bayFiltrada ? bayFiltrada.lineasCount : 0}`;
 
     modalBody.innerHTML = "";
 
@@ -932,8 +1170,9 @@ function abrirModalNiveles(pasilloKey, bahiaNum, bayData) {
         const nData = bayData.niveles?.[n] || { lineasCount: 0, teorica: 'S/A', cumplimientoCount: 0, items: [] };
 
         let itemsFiltrados = (nData.items || []).filter(it => {
-            if (SELECTED_CURVA === "TODAS") return true;
-            return it.curvaReal === SELECTED_CURVA;
+            const pasaCurva = SELECTED_CURVAS.has(it.curvaReal) || (it.curvaReal === 'C (S/C)' && (SELECTED_CURVAS.has("C1S") || SELECTED_CURVAS.has("C2S")));
+            const pasaRanking = (SELECTED_RANKING <= 0) || (it.skuRanking && it.skuRanking <= SELECTED_RANKING);
+            return pasaCurva && pasaRanking;
         });
 
         const numLineasNivel = itemsFiltrados.length;
@@ -943,11 +1182,15 @@ function abrirModalNiveles(pasilloKey, bahiaNum, bayData) {
         const levelRow = document.createElement("div");
         levelRow.className = "level-row";
 
-        let itemsHTML = itemsFiltrados.map(it => `
-            <span class="item-chip" style="border-left: 3px solid ${it.esConforme ? '#16a34a' : '#dc2626'}">
-                LPN: ${it.lpn} | SKU: ${it.sku} [${it.curvaReal}]
-            </span>
-        `).join('') || '<span style="color:#94a3b8; font-size:11px;">Nivel Vacío</span>';
+        let itemsHTML = itemsFiltrados.map(it => {
+            const esSinCurva = it.curvaReal === 'C (S/C)';
+            const colorTag = esSinCurva ? '#d946ef' : (it.esConforme ? '#16a34a' : '#dc2626');
+            return `
+                <span class="item-chip" style="border-left: 3px solid ${colorTag}">
+                    LPN: ${it.lpn} | SKU: ${it.sku} <b style="${esSinCurva ? 'color:#d946ef; font-weight:bold;' : ''}">[${it.curvaReal}]</b> ${it.skuRanking && it.skuRanking < 999999 ? '(R:' + it.skuRanking + ')' : ''}
+                </span>
+            `;
+        }).join('') || '<span style="color:#94a3b8; font-size:11px;">Nivel Vacío</span>';
 
         levelRow.innerHTML = `
             <div>
@@ -972,8 +1215,26 @@ function setupEventListeners() {
         fillPasillos();
     });
 
-    curvaFilter.addEventListener("change", (e) => {
-        SELECTED_CURVA = e.target.value;
+    rankingInput.addEventListener("input", (e) => {
+        const val = parseInt(e.target.value, 10);
+        SELECTED_RANKING = isNaN(val) ? 0 : val;
+        render();
+    });
+
+    curvaMultiBtn.addEventListener("click", (e) => {
+        e.stopPropagation();
+        curvaDropdown.classList.toggle("open");
+    });
+
+    btnSelectAllCurvas.addEventListener("click", () => {
+        SELECTED_CURVAS = new Set(LISTA_CURVAS);
+        fillCurvaCheckpoints();
+        render();
+    });
+
+    btnClearAllCurvas.addEventListener("click", () => {
+        SELECTED_CURVAS.clear();
+        fillCurvaCheckpoints();
         render();
     });
 
@@ -990,7 +1251,10 @@ function setupEventListeners() {
     });
 
     document.addEventListener("click", (e) => {
-        if (!e.target.closest(".multi-select")) multiDropdown.classList.remove("open");
+        if (!e.target.closest(".multi-select")) {
+            curvaDropdown.classList.remove("open");
+            multiDropdown.classList.remove("open");
+        }
     });
 
     btnSelectAll.addEventListener("click", () => {
