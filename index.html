@@ -26,6 +26,17 @@
                     <option value="AIP_P2">AIP02 - Piso 2 (501-508 / 601-608)</option>
                 </select>
             </div>
+
+            <!-- FILTRO DE CURVA (A, B, C) -->
+            <div class="control-group">
+                <label for="curvaFilter" class="header-label">CURVA</label>
+                <select id="curvaFilter" class="select-area">
+                    <option value="TODAS">TODAS (A, B, C)</option>
+                    <option value="A">CURVA A</option>
+                    <option value="B">CURVA B</option>
+                    <option value="C">CURVA C</option>
+                </select>
+            </div>
         </div>
     </header>
 
@@ -44,9 +55,9 @@
                 <span class="kpi-title">SKUs ÚNICOS</span>
                 <span class="kpi-value" id="totalSkus">0</span>
             </div>
-            <div class="kpi-card">
-                <span class="kpi-title">CUMPLIMIENTO PROMEDIO</span>
-                <span class="kpi-value" id="kpiCumplimiento">0%</span>
+            <div class="kpi-card kpi-card-highlight">
+                <span class="kpi-title kpi-title-curva">CUMPLIMIENTO DE CURVA</span>
+                <span class="kpi-value kpi-value-curva" id="kpiCumplimiento">0%</span>
             </div>
         </section>
 
