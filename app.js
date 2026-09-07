@@ -111,6 +111,7 @@ document.addEventListener('DOMContentLoaded', init);
 async function init() {
     setupEventListeners();
     fillCurvaCheckpoints();
+    obtenerUltimaFechaActualizacion(); // <--- AGREGAR ESTA LÍNEA AQUÍ
     await fetchMaestroSKU();
     await fetchMaestroUbicacion();
     await fetchInventarioCompleto();
@@ -202,6 +203,35 @@ async function fetchMaestroUbicacion() {
         }
     } catch (err) {
         console.error("Error maestro_ubicacion:", err);
+    }
+}
+async function obtenerUltimaFechaActualizacion() {
+    try {
+        const { data, error } = await _supabase
+            .from('inventario_lpn')
+            .select('created_at')
+            .order('created_at', { ascending: false })
+            .limit(1);
+
+        if (data && data.length > 0 && data[0].created_at) {
+            const fecha = new Date(data[0].created_at);
+
+            // Formatear la fecha a un formato legible (Ej: 07/09/2026 14:30 hs)
+            const fechaFormateada = fecha.toLocaleString('es-ES', {
+                day: '2-digit',
+                month: '2-digit',
+                year: 'numeric',
+                hour: '2-digit',
+                minute: '2-digit'
+            });
+
+            document.getElementById("fechaActualizacion").innerText = fechaFormateada;
+        } else {
+            document.getElementById("fechaActualizacion").innerText = "Sin registro de fecha";
+        }
+    } catch (err) {
+        console.error("Error al obtener fecha de actualización:", err);
+        document.getElementById("fechaActualizacion").innerText = "No disponible";
     }
 }
 
