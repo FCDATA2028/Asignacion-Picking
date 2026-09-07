@@ -373,12 +373,22 @@ function getHeatmapColorPct(porcentaje, promedioEsperado = 12.5) {
     }
 }
 
-function getFillColor(count) {
+// Nueva función de Mapa de Calor Dinámico para las Bahías
+function getHeatmapColorBay(count, minCount, maxCount) {
     if (count === 0) return "#ffffff";
-    if (count <= 15) return "#e0f2fe";
-    if (count <= 40) return "#dcfce7";
-    if (count <= 70) return "#fef08a";
-    return "#fca5a5";
+    if (maxCount === minCount) return "#dcfce7";
+
+    const ratio = (count - minCount) / (maxCount - minCount);
+
+    if (ratio <= 0.25) {
+        return "#e0f2fe"; // Azul ligero (carga baja)
+    } else if (ratio <= 0.50) {
+        return "#dcfce7"; // Verde (carga moderada-baja)
+    } else if (ratio <= 0.75) {
+        return "#fef08a"; // Amarillo (carga moderada-alta)
+    } else {
+        return "#fca5a5"; // Rojo/Rosado (máxima carga del pasillo)
+    }
 }
 
 function obtenerCurvaDominanteBahia(rawData) {
@@ -434,7 +444,7 @@ function filtrarBahiaPorCurva(rawData) {
     };
 }
 
-function createBayCard(pasilloKey, bahiaNum) {
+function createBayCard(pasilloKey, bahiaNum, minCount = 0, maxCount = 0) {
     const rawData = DATA[pasilloKey]?.[bahiaNum];
     const bahiaFiltrada = filtrarBahiaPorCurva(rawData);
 
@@ -447,7 +457,7 @@ function createBayCard(pasilloKey, bahiaNum) {
 
     const el = document.createElement("div");
     el.className = "bay-card";
-    el.style.backgroundColor = getFillColor(totalLineas);
+    el.style.backgroundColor = getHeatmapColorBay(totalLineas, minCount, maxCount);
 
     let kpiClass = "kpi-none";
     if (totalLineas > 0) {
@@ -530,8 +540,18 @@ function createAisleModulePB(pasilloKey, totalPlantaBajaAIP01 = 0) {
     const colMsp = aisleBlock.querySelector(`#col-msp-${pasilloNum}`);
     const colPar = aisleBlock.querySelector(`#col-par-${pasilloNum}`);
 
-    for (let b = 1; b <= 20; b += 2) colImp.appendChild(createBayCard(pasilloKey, b));
-    for (let b = 2; b <= 20; b += 2) colPar.appendChild(createBayCard(pasilloKey, b));
+    // Cálculo dinámico de mín/máx de líneas entre las 20 bahías de este pasillo específico
+    let lineasBahias = [];
+    for (let b = 1; b <= 20; b++) {
+        const bObj = DATA[pasilloKey]?.[b];
+        const bFilt = filtrarBahiaPorCurva(bObj);
+        lineasBahias.push(bFilt ? bFilt.lineasCount : 0);
+    }
+    const minCount = Math.min(...lineasBahias);
+    const maxCount = Math.max(...lineasBahias);
+
+    for (let b = 1; b <= 20; b += 2) colImp.appendChild(createBayCard(pasilloKey, b, minCount, maxCount));
+    for (let b = 2; b <= 20; b += 2) colPar.appendChild(createBayCard(pasilloKey, b, minCount, maxCount));
 
     const mspList = CONFIG_MSP_PB_AIP01[pasilloNum] || [];
     mspList.forEach(item => {
@@ -880,7 +900,7 @@ function createAipAisleModule(pasilloKey, ubicacionSector, totalSectorLines = 0)
                 <span class="compact-aisle-title" style="color:${heatmap.text}">PASILLO ${pasilloNum}</span>
                 <span class="compact-badge-cump ${pctCumplimiento >= 80 ? 'good' : (pctCumplimiento >= 50 ? 'mid' : 'bad')}">${pctCumplimiento}% OK</span>
             </div>
-            <div class="compact-big-kpi" style="color:${heatmap.text}">${sumLineas.toLocaleString()} <small>Lín. (${pctPart.toFixed(1)}%)</small></div>
+            <div class="compact-big-kpi" style="color:${heatmap.text}">${sumLineas.toLocaleString()} <small>Lín.</small> (${pctPart.toFixed(1)}%)</div>
             <div class="compact-sub-metrics" style="color:${heatmap.text}">
                 <span>${sumLpns.size} LPN</span> | <span>${sumSkus.size} SKU</span>
             </div>
