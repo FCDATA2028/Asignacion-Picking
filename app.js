@@ -106,12 +106,21 @@ const modalSubtitle = document.getElementById("modalSubtitle");
 const modalBody = document.getElementById("modalBody");
 const modalClose = document.getElementById("modalClose");
 
+// Elementos del Modal CSV
+const btnOpenCsvModal = document.getElementById("btnOpenCsvModal");
+const modalCsvUpload = document.getElementById("modalCsvUpload");
+const modalCsvClose = document.getElementById("modalCsvClose");
+const dropZone = document.getElementById("dropZone");
+const csvFileInput = document.getElementById("csvFileInput");
+const uploadSpinnerContainer = document.getElementById("uploadSpinnerContainer");
+const uploadStatusText = document.getElementById("uploadStatusText");
+
 document.addEventListener('DOMContentLoaded', init);
 
 async function init() {
     setupEventListeners();
     fillCurvaCheckpoints();
-    obtenerUltimaFechaActualizacion(); // <--- AGREGAR ESTA LÍNEA AQUÍ
+    obtenerUltimaFechaActualizacion();
     await fetchMaestroSKU();
     await fetchMaestroUbicacion();
     await fetchInventarioCompleto();
@@ -205,18 +214,17 @@ async function fetchMaestroUbicacion() {
         console.error("Error maestro_ubicacion:", err);
     }
 }
+
 async function obtenerUltimaFechaActualizacion() {
     try {
-        const { data, error } = await _supabase
-            .from('inventario_lpn')
+        const { data } = await _supabase
+            .from('asignacion_diaria')
             .select('created_at')
             .order('created_at', { ascending: false })
             .limit(1);
 
         if (data && data.length > 0 && data[0].created_at) {
             const fecha = new Date(data[0].created_at);
-
-            // Formatear la fecha a un formato legible (Ej: 07/09/2026 14:30 hs)
             const fechaFormateada = fecha.toLocaleString('es-ES', {
                 day: '2-digit',
                 month: '2-digit',
@@ -224,7 +232,6 @@ async function obtenerUltimaFechaActualizacion() {
                 hour: '2-digit',
                 minute: '2-digit'
             });
-
             document.getElementById("fechaActualizacion").innerText = fechaFormateada;
         } else {
             document.getElementById("fechaActualizacion").innerText = "Sin registro de fecha";
@@ -239,21 +246,21 @@ async function fetchInventarioCompleto() {
     try {
         let desde = 0, paso = 1000;
         DATA = {};
-        const { count } = await _supabase.from('inventario_lpn').select('*', { count: 'exact', head: true });
+        const { count } = await _supabase.from('asignacion_diaria').select('*', { count: 'exact', head: true });
 
         while (desde < (count || 0)) {
-            statusSub.innerText = `Sincronizando inventario (${desde.toLocaleString()} / ${(count || 0).toLocaleString()})...`;
-            const { data } = await _supabase.from('inventario_lpn').select('ubicacion, codigo, lpn').range(desde, desde + paso - 1);
+            statusSub.innerText = `Sincronizando asignaciones (${desde.toLocaleString()} / ${(count || 0).toLocaleString()})...`;
+            const { data } = await _supabase.from('asignacion_diaria').select('ubicacion, codigo, lpn').range(desde, desde + paso - 1);
             if (data && data.length > 0) {
                 procesarBloque(data);
                 desde += paso;
             } else break;
         }
 
-        statusSub.innerText = "Inventario sincronizado correctamente.";
+        statusSub.innerText = "Asignación diaria sincronizada correctamente.";
         fillPasillos();
     } catch (err) {
-        console.error("Error inventario_lpn:", err);
+        console.error("Error asignacion_diaria:", err);
         statusSub.innerText = "Error cargando la base de datos.";
     }
 }
@@ -403,7 +410,6 @@ function getHeatmapColorPct(porcentaje, promedioEsperado = 12.5) {
     }
 }
 
-// Nueva función de Mapa de Calor Dinámico para las Bahías
 function getHeatmapColorBay(count, minCount, maxCount) {
     if (count === 0) return "#ffffff";
     if (maxCount === minCount) return "#dcfce7";
@@ -411,13 +417,13 @@ function getHeatmapColorBay(count, minCount, maxCount) {
     const ratio = (count - minCount) / (maxCount - minCount);
 
     if (ratio <= 0.25) {
-        return "#e0f2fe"; // Azul ligero (carga baja)
+        return "#e0f2fe";
     } else if (ratio <= 0.50) {
-        return "#dcfce7"; // Verde (carga moderada-baja)
+        return "#dcfce7";
     } else if (ratio <= 0.75) {
-        return "#fef08a"; // Amarillo (carga moderada-alta)
+        return "#fef08a";
     } else {
-        return "#fca5a5"; // Rojo/Rosado (máxima carga del pasillo)
+        return "#fca5a5";
     }
 }
 
@@ -570,7 +576,6 @@ function createAisleModulePB(pasilloKey, totalPlantaBajaAIP01 = 0) {
     const colMsp = aisleBlock.querySelector(`#col-msp-${pasilloNum}`);
     const colPar = aisleBlock.querySelector(`#col-par-${pasilloNum}`);
 
-    // Cálculo dinámico de mín/máx de líneas entre las 20 bahías de este pasillo específico
     let lineasBahias = [];
     for (let b = 1; b <= 20; b++) {
         const bObj = DATA[pasilloKey]?.[b];
@@ -979,7 +984,6 @@ function renderVistaGerencialMSP() {
     const gridGerencial = document.createElement("div");
     gridGerencial.className = "gerencial-dashboard-layout";
 
-    // 1. FARMACIA (AIP01 - NIVEL 1 Y 2)
     const mspNivel1 = [];
     ["101", "102"].forEach(p => {
         (CONFIG_MSP_PB_AIP01[p] || []).forEach(m => {
@@ -1015,7 +1019,6 @@ function renderVistaGerencialMSP() {
         mspNivel2.push({ name: mspKey, lineas: sumL, cump: sumC, skus: skus.size, lpns: lpns.size });
     });
 
-    // 2. SALA (AIP02 - NIVEL 1, 2 Y 3)
     const obtenerMSRSector = (configKey) => {
         const conf = CONFIG_AIP02[configKey];
         const res = [];
@@ -1042,7 +1045,6 @@ function renderVistaGerencialMSP() {
     const msrNivel2 = obtenerMSRSector("AIP_P1");
     const msrNivel3 = obtenerMSRSector("AIP_P2");
 
-    // FILA SUPERIOR: FARMACIA
     const farmaciaRow = document.createElement("div");
     farmaciaRow.className = "gerencial-section farmacia-section";
 
@@ -1057,7 +1059,6 @@ function renderVistaGerencialMSP() {
     farmaciaGrid.appendChild(crearBloqueNivelGerencial("FARMACIA - NIVEL 2", mspNivel2, "#3b82f6"));
     farmaciaRow.appendChild(farmaciaGrid);
 
-    // FILA INFERIOR: SALA (3 NIVELES)
     const salaRow = document.createElement("div");
     salaRow.className = "gerencial-section sala-section";
 
@@ -1260,6 +1261,110 @@ function abrirModalNiveles(pasilloKey, bahiaNum, bayData) {
     modalNiveles.classList.add("active");
 }
 
+// ---------------------------------------------------------------------
+// LÓGICA DE PROCESAMIENTO CSV WMS (CORREGIDO)
+// ---------------------------------------------------------------------
+function procesarArchivoCSV(file) {
+    if (!file) return;
+
+    dropZone.style.display = "none";
+    uploadSpinnerContainer.style.display = "flex";
+    uploadStatusText.innerText = "Leyendo archivo CSV...";
+
+    Papa.parse(file, {
+        header: false,
+        skipEmptyLines: true,
+        complete: async function (results) {
+            try {
+                const rows = results.data;
+                if (!rows || rows.length <= 1) {
+                    alert("El archivo CSV está vacío o no tiene el formato correcto.");
+                    resetModalCsv();
+                    return;
+                }
+
+                // Extraer exactamente las 5 columnas requeridas según su posición de índice (0-based)
+                // Col 2 = LPN (idx 1)
+                // Col 4 = Código SKU (idx 3)
+                // Col 5 = Descripción (idx 4)
+                // Col 11 = Ubicación (idx 10)
+                // Col 14 = Fecha (idx 13)
+                const payload = [];
+                for (let i = 1; i < rows.length; i++) {
+                    const r = rows[i];
+                    if (r.length >= 11) {
+                        // Limpieza rigurosa de comillas dobles y signo =
+                        const lpnLimpio = r[1] ? String(r[1]).replace(/^="|"$|"/g, '').trim() : "";
+                        const codigoLimpio = r[3] ? String(r[3]).replace(/^="|"$|"/g, '').trim() : "";
+                        const descripcionLimpia = r[4] ? String(r[4]).trim() : "";
+                        const ubicacionLimpia = r[10] ? String(r[10]).trim() : "";
+
+                        // Captura de fecha desde col 14 (idx 13)
+                        let fechaVal = (r.length >= 14 && r[13]) ? String(r[13]).replace(/^="|"$|"/g, '').trim() : null;
+                        if (!fechaVal || fechaVal.toUpperCase() === "NULL" || fechaVal === "") {
+                            fechaVal = null;
+                        }
+
+                        payload.push({
+                            lpn: lpnLimpio,
+                            codigo: codigoLimpio,
+                            descripcion: descripcionLimpia,
+                            ubicacion: ubicacionLimpia,
+                            fecha: fechaVal
+                        });
+                    }
+                }
+
+                if (payload.length === 0) {
+                    alert("No se pudieron extraer registros válidos del CSV.");
+                    resetModalCsv();
+                    return;
+                }
+
+                // 1. Limpiar la tabla asignacion_diaria en Supabase
+                uploadStatusText.innerText = "Eliminando registros anteriores en Supabase...";
+                const { error: deleteError } = await _supabase.from('asignacion_diaria').delete().gte('id', 0);
+                if (deleteError) throw deleteError;
+
+                // 2. Insertar en bloques de 1000 registros
+                const BATCH_SIZE = 1000;
+                const totalBatches = Math.ceil(payload.length / BATCH_SIZE);
+
+                for (let b = 0; b < totalBatches; b++) {
+                    const batch = payload.slice(b * BATCH_SIZE, (b + 1) * BATCH_SIZE);
+                    uploadStatusText.innerText = `Insertando registro ${b * BATCH_SIZE + 1} a ${Math.min((b + 1) * BATCH_SIZE, payload.length)} de ${payload.length}...`;
+                    const { error: insertError } = await _supabase.from('asignacion_diaria').insert(batch);
+                    if (insertError) throw insertError;
+                }
+
+                uploadStatusText.innerText = "¡Asignación diaria actualizada con éxito!";
+                setTimeout(async () => {
+                    modalCsvUpload.classList.remove("active");
+                    resetModalCsv();
+                    await fetchInventarioCompleto();
+                    await obtenerUltimaFechaActualizacion();
+                }, 1000);
+
+            } catch (err) {
+                console.error("Error al procesar/subir CSV:", err);
+                alert("Ocurrió un error al cargar los datos en Supabase: " + err.message);
+                resetModalCsv();
+            }
+        },
+        error: function (err) {
+            console.error("Error leyendo CSV:", err);
+            alert("Error al leer el archivo CSV.");
+            resetModalCsv();
+        }
+    });
+}
+
+function resetModalCsv() {
+    dropZone.style.display = "flex";
+    uploadSpinnerContainer.style.display = "none";
+    csvFileInput.value = "";
+}
+
 function setupEventListeners() {
     viewSelect.addEventListener("change", () => {
         fillPasillos();
@@ -1318,4 +1423,37 @@ function setupEventListeners() {
     });
 
     modalClose.addEventListener("click", () => modalNiveles.classList.remove("active"));
+
+    // Event listeners para Modal de CSV WMS
+    btnOpenCsvModal.addEventListener("click", () => {
+        modalCsvUpload.classList.add("active");
+    });
+
+    modalCsvClose.addEventListener("click", () => {
+        modalCsvUpload.classList.remove("active");
+        resetModalCsv();
+    });
+
+    csvFileInput.addEventListener("change", (e) => {
+        if (e.target.files && e.target.files[0]) {
+            procesarArchivoCSV(e.target.files[0]);
+        }
+    });
+
+    dropZone.addEventListener("dragover", (e) => {
+        e.preventDefault();
+        dropZone.classList.add("dragover");
+    });
+
+    dropZone.addEventListener("dragleave", () => {
+        dropZone.classList.remove("dragover");
+    });
+
+    dropZone.addEventListener("drop", (e) => {
+        e.preventDefault();
+        dropZone.classList.remove("dragover");
+        if (e.dataTransfer.files && e.dataTransfer.files[0]) {
+            procesarArchivoCSV(e.dataTransfer.files[0]);
+        }
+    });
 }
