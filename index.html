@@ -7,6 +7,7 @@
     <title>Plano Digital CEDIS — Control Logístico Unificado</title>
     <link rel="stylesheet" href="style.css">
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <script src="https://cdn.jsdelivr.net/npm/papaparse@5.4.1/papaparse.min.js"></script>
 </head>
 
 <body>
@@ -98,7 +99,10 @@
             </div>
 
             <!-- BOTÓN MODO RESUMIDO / DETALLADO -->
-            <div class="control-item" id="toggleViewContainer" style="margin-left: auto;">
+            <div class="control-item" id="toggleViewContainer" style="margin-left: auto; display: flex; gap: 8px;">
+                <button type="button" id="btnOpenCsvModal" class="btn-upload-csv">
+                    📁 Subir CSV WMS
+                </button>
                 <button type="button" id="btnToggleCompact" class="btn-toggle-view">
                     📊 Vista Compacta (Gerencial)
                 </button>
@@ -111,7 +115,7 @@
         </section>
     </main>
 
-    <!-- MODAL DE DETALLE -->
+    <!-- MODAL DE DETALLE DE BAHÍA -->
     <div id="modalNiveles" class="modal-overlay">
         <div class="modal-content">
             <div class="modal-header">
@@ -122,6 +126,34 @@
                 <button id="modalClose" class="modal-close">&times;</button>
             </div>
             <div class="modal-body" id="modalBody"></div>
+        </div>
+    </div>
+
+    <!-- MODAL DE CARGA CSV WMS -->
+    <div id="modalCsvUpload" class="modal-overlay">
+        <div class="modal-content modal-csv-content">
+            <div class="modal-header">
+                <div>
+                    <h2>Actualización de Inventario WMS</h2>
+                    <span class="modal-subtitle">Selecciona o arrastra el CSV crudo sin modificar</span>
+                </div>
+                <button id="modalCsvClose" class="modal-close">&times;</button>
+            </div>
+            <div class="modal-body">
+                <div id="dropZone" class="drop-zone">
+                    <div class="drop-zone-icon">📄</div>
+                    <p class="drop-zone-text">Arrastra aquí el archivo CSV del WMS</p>
+                    <span class="drop-zone-or">o</span>
+                    <label for="csvFileInput" class="btn-select-file">Buscar Archivo</label>
+                    <input type="file" id="csvFileInput" accept=".csv" style="display: none;">
+                </div>
+
+                <!-- INDICADOR DE CARGA / SPINNER -->
+                <div id="uploadSpinnerContainer" class="upload-spinner-container" style="display: none;">
+                    <div class="spinner"></div>
+                    <p id="uploadStatusText" class="upload-status-text">Procesando e insertando datos...</p>
+                </div>
+            </div>
         </div>
     </div>
 
