@@ -169,6 +169,22 @@ body {
     background: #0f172a;
 }
 
+.btn-upload-csv {
+    background: #10b981;
+    color: #ffffff;
+    border: none;
+    padding: 8px 14px;
+    border-radius: 6px;
+    font-weight: 800;
+    font-size: 12px;
+    cursor: pointer;
+    transition: all 0.2s ease;
+}
+
+.btn-upload-csv:hover {
+    background: #059669;
+}
+
 .multi-select {
     position: relative;
     min-width: 200px;
@@ -255,7 +271,6 @@ body {
     height: 100%;
 }
 
-/* ESTRUCTURA GERENCIAL MSP / MSR PANTALLA COMPLETA */
 .gerencial-dashboard-layout {
     display: flex;
     flex-direction: column;
@@ -363,7 +378,6 @@ body {
     transition: width 0.4s ease, background-color 0.3s ease;
 }
 
-/* ANIMACIÓN PARPADEO ROJO PARA LA MAYOR BARRA */
 @keyframes pulse-red {
     0% {
         background-color: #ef4444;
@@ -400,7 +414,6 @@ body {
     border-radius: 4px;
 }
 
-/* COLORES DE CUMPLIMIENTO */
 .cump-good {
     color: #15803d;
     background: #dcfce7;
@@ -911,6 +924,10 @@ body {
     box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.2);
 }
 
+.modal-csv-content {
+    max-width: 500px;
+}
+
 .modal-header {
     padding: 12px 18px;
     background: #0f172a;
@@ -989,4 +1006,82 @@ body {
     color: #64748b;
     font-size: 14px;
     font-weight: 700;
+}
+
+/* ÁREA DE DRAG AND DROP & SPINNER DEL CSV */
+.drop-zone {
+    border: 2px dashed #cbd5e1;
+    border-radius: 8px;
+    padding: 30px 20px;
+    text-align: center;
+    background: #f8fafc;
+    transition: all 0.2s ease;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 8px;
+}
+
+.drop-zone.dragover {
+    border-color: #0284c7;
+    background: #f0f9ff;
+}
+
+.drop-zone-icon {
+    font-size: 36px;
+}
+
+.drop-zone-text {
+    font-size: 13px;
+    font-weight: 700;
+    color: #334155;
+}
+
+.drop-zone-or {
+    font-size: 11px;
+    color: #94a3b8;
+}
+
+.btn-select-file {
+    background: #0284c7;
+    color: #ffffff;
+    padding: 6px 14px;
+    border-radius: 6px;
+    font-size: 12px;
+    font-weight: 800;
+    cursor: pointer;
+}
+
+.upload-spinner-container {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    padding: 24px;
+    gap: 12px;
+}
+
+.spinner {
+    width: 38px;
+    height: 38px;
+    border: 4px solid #e2e8f0;
+    border-top: 4px solid #0284c7;
+    border-radius: 50%;
+    animation: spin 1s linear infinite;
+}
+
+@keyframes spin {
+    0% {
+        transform: rotate(0deg);
+    }
+
+    100% {
+        transform: rotate(360deg);
+    }
+}
+
+.upload-status-text {
+    font-size: 12px;
+    font-weight: 700;
+    color: #0f172a;
 }
