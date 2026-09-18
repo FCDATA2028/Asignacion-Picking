@@ -277,14 +277,17 @@ function procesarBloque(filas) {
         const ubClean = String(row.ubicacion).trim();
         const ubUpper = ubClean.toUpperCase();
 
-        if (!ubUpper.startsWith("AIP01") && !ubUpper.startsWith("AIP02")) {
+        if (!ubUpper.startsWith("AIP01") && !ubUpper.startsWith("AIP02") && !ubUpper.startsWith("CR5")) {
             return;
         }
 
         const partes = ubClean.split('-').map(p => p.trim());
 
         if (partes.length >= 3) {
-            let area = ubUpper.startsWith("AIP02") ? "AIP02" : "AIP01";
+            let area = "AIP01";
+            if (ubUpper.startsWith("AIP02")) area = "AIP02";
+            else if (ubUpper.startsWith("CR5")) area = "CR5";
+
             let pasilloNum = partes[1];
             let bahia = parseInt(partes[2], 10);
             let nivel = partes.length >= 4 ? parseInt(partes[3], 10) : 1;
@@ -354,7 +357,7 @@ function fillPasillos() {
     const vista = viewSelect.value;
     pasilloOptions.innerHTML = "";
 
-    if (vista === "MSP_MSR") {
+    if (vista === "MSP_MSR" || vista === "CR5") {
         pasilloSelectWrapper.style.display = "none";
         render();
         return;
@@ -391,7 +394,7 @@ function fillPasillos() {
 }
 
 function getSelectedPasillos() {
-    if (viewSelect.value === "MSP_MSR") return [];
+    if (viewSelect.value === "MSP_MSR" || viewSelect.value === "CR5") return [];
     return Array.from(pasilloOptions.querySelectorAll("input[type='checkbox']:checked")).map(cb => cb.value);
 }
 
@@ -489,14 +492,15 @@ function createBayCard(pasilloKey, bahiaNum, minCount = 0, maxCount = 0) {
     const totalSkus = bahiaFiltrada.skusSet.size;
 
     const teorica = obtenerCurvaDominanteBahia(rawData);
-    const cumplimiento = totalLineas > 0 ? Math.round((bahiaFiltrada.cumplimientoCount / totalLineas) * 100) : 0;
+    const tieneCurvaTeorica = rawData && rawData.teorica && rawData.teorica !== 'S/A';
+    const cumplimiento = (totalLineas > 0 && tieneCurvaTeorica) ? Math.round((bahiaFiltrada.cumplimientoCount / totalLineas) * 100) : 0;
 
     const el = document.createElement("div");
     el.className = "bay-card";
     el.style.backgroundColor = getHeatmapColorBay(totalLineas, minCount, maxCount);
 
     let kpiClass = "kpi-none";
-    if (totalLineas > 0) {
+    if (totalLineas > 0 && tieneCurvaTeorica) {
         if (cumplimiento >= 80) kpiClass = "kpi-good";
         else if (cumplimiento >= 50) kpiClass = "kpi-mid";
         else kpiClass = "kpi-bad";
@@ -512,7 +516,7 @@ function createBayCard(pasilloKey, bahiaNum, minCount = 0, maxCount = 0) {
                 <span class="bay-lpn-val">${totalLineas} <small style="font-size:10px;">Lín.</small></span>
                 <span class="bay-sku-val">${totalLpns} LPN | ${totalSkus} SKU</span>
             </div>
-            <span class="bay-kpi-badge ${kpiClass}">${totalLineas > 0 ? cumplimiento + '%' : 'N/A'}</span>
+            <span class="bay-kpi-badge ${kpiClass}">${(totalLineas > 0 && tieneCurvaTeorica) ? cumplimiento + '%' : 'N/A'}</span>
         </div>
     `;
 
@@ -980,6 +984,120 @@ function createAipAisleModule(pasilloKey, ubicacionSector, totalSectorLines = 0)
     return card;
 }
 
+// ---------------------------------------------------------------------
+// VISTA: CUARTO FRÍO (CR5) - ESTRUCTURA VERTICAL Y PASILLOS FÍSICOS
+// ---------------------------------------------------------------------
+function createEmptyCorridorElement(label = "PASILLO VACÍO") {
+    const el = document.createElement("div");
+    el.className = "cr5-empty-corridor";
+    el.innerHTML = `<span>${label}</span>`;
+    return el;
+}
+
+function renderCuartoFrioCR5() {
+    const layoutCR5 = document.createElement("div");
+    layoutCR5.className = "cr5-vertical-layout";
+
+    // -----------------------------------------------------------------
+    // COLUMNA 1 (IZQUIERDA) - PASILLO FÍSICO 1 (05_CR5)
+    // ESTANTES: Impares [03-23] (Naranja) y Pares [02-24] (Verde)
+    // -----------------------------------------------------------------
+    const col1 = document.createElement("div");
+    col1.className = "cr5-vertical-column";
+
+    // Estante Naranja (Impares 03 a 23 con hueco entre 11 y 15)
+    const rackNaranja = document.createElement("div");
+    rackNaranja.className = "cr5-rack-col";
+    rackNaranja.innerHTML = `<div class="cr5-rack-title title-orange">PASILLO 05 (03 - 23)</div>`;
+    const impares05 = [3, 5, 7, 9, 11, null, 15, 17, 19, 21, 23];
+    impares05.forEach(b => {
+        if (b === null) {
+            const spacer = document.createElement("div");
+            spacer.className = "bay-spacer-gap";
+            rackNaranja.appendChild(spacer);
+        } else {
+            rackNaranja.appendChild(createBayCard("05_CR5", b));
+        }
+    });
+
+    // Pasillo Físico 1 entre racks
+    const pasilloFisico1 = createEmptyCorridorElement("PASILLO VACÍO (PASILLO FÍSICO 1)");
+
+    // Estante Verde (Pares 02 a 24 continuos)
+    const rackVerde = document.createElement("div");
+    rackVerde.className = "cr5-rack-col";
+    rackVerde.innerHTML = `<div class="cr5-rack-title title-green">PASILLO 05 (02 - 24)</div>`;
+    for (let b = 2; b <= 24; b += 2) {
+        rackVerde.appendChild(createBayCard("05_CR5", b));
+    }
+
+    col1.appendChild(rackNaranja);
+    col1.appendChild(pasilloFisico1);
+    col1.appendChild(rackVerde);
+
+    // -----------------------------------------------------------------
+    // COLUMNA SEPARADORA INTER-ESTANTES (Separación física central)
+    // -----------------------------------------------------------------
+    const pasilloInterMedio = createEmptyCorridorElement("PASILLO VACÍO");
+
+    // -----------------------------------------------------------------
+    // COLUMNA 2 (DERECHA) - PASILLO FÍSICO 2 (05 / 04) Y 3 (04_CR5)
+    // ESTANTES: Pares [26-66] (Azul), Impares [33-65] (Beige/Amarillo), Impares [35-01] (Gris)
+    // -----------------------------------------------------------------
+    const col2 = document.createElement("div");
+    col2.className = "cr5-vertical-column";
+
+    // Estante Azul (Pares 26 a 66 continuos)
+    const rackAzul = document.createElement("div");
+    rackAzul.className = "cr5-rack-col";
+    rackAzul.innerHTML = `<div class="cr5-rack-title title-blue">PASILLO 05 (26 - 66)</div>`;
+    for (let b = 26; b <= 66; b += 2) {
+        rackAzul.appendChild(createBayCard("05_CR5", b));
+    }
+
+    // Pasillo Físico 2
+    const pasilloFisico2 = createEmptyCorridorElement("PASILLO VACÍO (PASILLO FÍSICO 2)");
+
+    // Estante Beige / Amarillo (Impares 33 a 65 y 04_CR5)
+    const rackBeigeAmarillo = document.createElement("div");
+    rackBeigeAmarillo.className = "cr5-rack-col";
+    rackBeigeAmarillo.innerHTML = `<div class="cr5-rack-title title-beige">PASILLO 05/04 (33 - 65)</div>`;
+    const beigeList = [33, 35, 37, 39, 41, 43, 45, null, 49, 51, 53, 55, 57, 59, 61, 63, null, 65];
+    beigeList.forEach(b => {
+        if (b === null) {
+            const spacer = document.createElement("div");
+            spacer.className = "bay-spacer-gap";
+            rackBeigeAmarillo.appendChild(spacer);
+        } else {
+            rackBeigeAmarillo.appendChild(createBayCard("05_CR5", b));
+        }
+    });
+
+    // Pasillo Físico 3
+    const pasilloFisico3 = createEmptyCorridorElement("PASILLO VACÍO (PASILLO FÍSICO 3)");
+
+    // Estante Gris (Impares 35 a 01 bajando)
+    const rackGris = document.createElement("div");
+    rackGris.className = "cr5-rack-col";
+    rackGris.innerHTML = `<div class="cr5-rack-title title-grey">PASILLO 04 (35 - 01)</div>`;
+    for (let b = 35; b >= 1; b -= 2) {
+        rackGris.appendChild(createBayCard("04_CR5", b));
+    }
+
+    col2.appendChild(rackAzul);
+    col2.appendChild(pasilloFisico2);
+    col2.appendChild(rackBeigeAmarillo);
+    col2.appendChild(pasilloFisico3);
+    col2.appendChild(rackGris);
+
+    // Ensamblaje final de la vista vertical
+    layoutCR5.appendChild(col1);
+    layoutCR5.appendChild(pasilloInterMedio);
+    layoutCR5.appendChild(col2);
+
+    mapsContainer.appendChild(layoutCR5);
+}
+
 function renderVistaGerencialMSP() {
     const gridGerencial = document.createElement("div");
     gridGerencial.className = "gerencial-dashboard-layout";
@@ -1135,6 +1253,12 @@ function render() {
         return;
     }
 
+    if (vista === "CR5") {
+        renderCuartoFrioCR5();
+        actualizarResumenKPIsCR5();
+        return;
+    }
+
     const selected = getSelectedPasillos();
 
     if (selected.length === 0) {
@@ -1153,13 +1277,35 @@ function render() {
     actualizarResumenKPIs(selected);
 }
 
+function actualizarResumenKPIsCR5() {
+    let grandLineas = 0;
+    let grandLpnsSet = new Set();
+    let grandSkusSet = new Set();
+
+    ["04_CR5", "05_CR5"].forEach(pKey => {
+        const pObj = DATA[pKey] || {};
+        Object.values(pObj).forEach(b => {
+            const bFilt = filtrarBahiaPorCurva(b);
+            grandLineas += bFilt.lineasCount;
+            bFilt.lpnsSet.forEach(l => grandLpnsSet.add(l));
+            bFilt.skusSet.forEach(s => grandSkusSet.add(s));
+        });
+    });
+
+    document.getElementById("totalLineas").textContent = grandLineas.toLocaleString();
+    document.getElementById("totalLpns").textContent = grandLpnsSet.size.toLocaleString();
+    document.getElementById("totalSkus").textContent = grandSkusSet.size.toLocaleString();
+    document.getElementById("kpiCumplimiento").textContent = "N/A";
+}
+
 function actualizarResumenKPIsGlobales() {
     let grandLineas = 0;
     let grandLpnsSet = new Set();
     let grandSkusSet = new Set();
     let grandCumplimientoCount = 0;
 
-    Object.values(DATA).forEach(pasillo => {
+    Object.entries(DATA).forEach(([pKey, pasillo]) => {
+        if (pKey.endsWith("_CR5")) return; // Excluir CR5 de KPIs globales AIP01/AIP02
         Object.values(pasillo).forEach(b => {
             const bFilt = filtrarBahiaPorCurva(b);
             grandLineas += bFilt.lineasCount;
@@ -1261,9 +1407,24 @@ function abrirModalNiveles(pasilloKey, bahiaNum, bayData) {
     modalNiveles.classList.add("active");
 }
 
-// ---------------------------------------------------------------------
-// LÓGICA DE PROCESAMIENTO CSV WMS (CORREGIDO)
-// ---------------------------------------------------------------------
+function formatToISO(dateString) {
+    if (!dateString) return null;
+
+    const parts = dateString.trim().split(' ');
+    const dateParts = parts[0].split('/');
+
+    if (dateParts.length === 3) {
+        const day = dateParts[0].padStart(2, '0');
+        const month = dateParts[1].padStart(2, '0');
+        const year = dateParts[2];
+        const time = parts[1] ? parts[1] : '00:00:00';
+
+        return `${year}-${month}-${day} ${time}`;
+    }
+
+    return dateString;
+}
+
 function procesarArchivoCSV(file) {
     if (!file) return;
 
@@ -1283,26 +1444,20 @@ function procesarArchivoCSV(file) {
                     return;
                 }
 
-                // Extraer exactamente las 5 columnas requeridas según su posición de índice (0-based)
-                // Col 2 = LPN (idx 1)
-                // Col 4 = Código SKU (idx 3)
-                // Col 5 = Descripción (idx 4)
-                // Col 11 = Ubicación (idx 10)
-                // Col 14 = Fecha (idx 13)
                 const payload = [];
                 for (let i = 1; i < rows.length; i++) {
                     const r = rows[i];
                     if (r.length >= 11) {
-                        // Limpieza rigurosa de comillas dobles y signo =
                         const lpnLimpio = r[1] ? String(r[1]).replace(/^="|"$|"/g, '').trim() : "";
                         const codigoLimpio = r[3] ? String(r[3]).replace(/^="|"$|"/g, '').trim() : "";
                         const descripcionLimpia = r[4] ? String(r[4]).trim() : "";
                         const ubicacionLimpia = r[10] ? String(r[10]).trim() : "";
 
-                        // Captura de fecha desde col 14 (idx 13)
                         let fechaVal = (r.length >= 14 && r[13]) ? String(r[13]).replace(/^="|"$|"/g, '').trim() : null;
                         if (!fechaVal || fechaVal.toUpperCase() === "NULL" || fechaVal === "") {
                             fechaVal = null;
+                        } else {
+                            fechaVal = formatToISO(fechaVal);
                         }
 
                         payload.push({
@@ -1321,12 +1476,15 @@ function procesarArchivoCSV(file) {
                     return;
                 }
 
-                // 1. Limpiar la tabla asignacion_diaria en Supabase
                 uploadStatusText.innerText = "Eliminando registros anteriores en Supabase...";
-                const { error: deleteError } = await _supabase.from('asignacion_diaria').delete().gte('id', 0);
-                if (deleteError) throw deleteError;
 
-                // 2. Insertar en bloques de 1000 registros
+                const { error: rpcError } = await _supabase.rpc('truncate_asignacion_diaria');
+
+                if (rpcError) {
+                    const { error: deleteError } = await _supabase.from('asignacion_diaria').delete().neq('ubicacion', '___DUMMY_NONE___');
+                    if (deleteError) throw deleteError;
+                }
+
                 const BATCH_SIZE = 1000;
                 const totalBatches = Math.ceil(payload.length / BATCH_SIZE);
 
@@ -1424,7 +1582,6 @@ function setupEventListeners() {
 
     modalClose.addEventListener("click", () => modalNiveles.classList.remove("active"));
 
-    // Event listeners para Modal de CSV WMS
     btnOpenCsvModal.addEventListener("click", () => {
         modalCsvUpload.classList.add("active");
     });
